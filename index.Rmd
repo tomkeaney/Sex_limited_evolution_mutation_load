@@ -29,13 +29,32 @@ library(tidybayes) # Bayesian aesthetics
 library(loo) # to use information criteria in brms models
 library(MetBrewer) # colours
 library(rcartocolor) # more colours
+library(pander) # tables
 library(kableExtra) # tables
 library(patchwork) # putting plots together
 library(DT) # for search- and saveable tables
 library(ggdist) # for ribbon plot
 ```
 
-# Mortality analysis
+# Supplementary methods
+
+$~$
+
+**Table S1**. Recipe for food medium used in our experiment. The provided quantities make ~ 1 litre of food.
+
+```{r}
+tibble("Ingredients" = c("Soy flour", "Cornmeal", "Yeast", "Dextrose", "Agar", "Water", "Tegosept", "Acid mix (4 mL orthophosphoric acid, 41 mL propionic acid, 55 mL water to make 100 mL)"),
+       "Quantity" = c("20 g", "73 g", "35 g", "75 g", "6 g", "1000 mL", "17 mL", "14 mL")) %>% 
+  pander(split.cell = 40, split.table = Inf)
+```
+
+$~$
+
+# Analysis
+
+$~$
+
+## Mortality analysis
 
 $~$
 
@@ -47,7 +66,7 @@ We test this hypothesis to assess whether it is required to censor lineages wher
 
 $~$
 
-## Load in the data
+### Load in the data
 
 ```{r}
 
@@ -65,7 +84,7 @@ mortality_data <-
 
 $~$
 
-## Modelling approach
+### Modelling approach
 
 $~$
 
@@ -85,7 +104,7 @@ mortality_model <-
 ```
 
 
-## Extract model predictions and plot
+### Extract model predictions and plot
 
 ```{r}
 
@@ -117,7 +136,7 @@ mortality_diff <-
 
 ```
 
-## Build Figure SX
+### Build Figure SX
 
 ```{r}
 mortality_plot <-
@@ -165,9 +184,9 @@ Female mortality is less frequent in lineages with female-limited selection resp
 
 $~$
 
-# Extinction analysis
+## Extinction analysis
 
-## Load in the extinction data 
+### Load in the extinction data 
 
 $~$
 
@@ -281,7 +300,7 @@ my_data_table(extinction_data_wrangled)
 
 $~$
 
-## Modelling approach
+### Modelling approach
 
 $~$
 
@@ -313,7 +332,18 @@ Finally, we fit both models and use leave one out (LOO) cross validation to form
 
 We fit moderately informative priors, with the aim to regularise our posterior estimates and improve model fitting by ruling out non-sensical values.
 
-## Fit the models
+Note that each of these priors is expressed on the log scale, due to the weibull log link.
+
+$\alpha$ (the intercepts) ~ Normal($\mu$ = 0, $\sigma$ = 1)
+
+$\beta$ (the fixed effects) ~ Normal($\mu$ = 0, $\sigma$ = 1) 
+
+$\sigma$ ~ Exponential(1)
+
+$k$ (The weibull shape parameter) ~ Normal($\mu$ = 0, $\sigma$ = 1) 
+
+
+### Fit the models
 
 ```{r}
 
@@ -353,7 +383,7 @@ extinction_model_mm <- add_criterion(extinction_model_mm, criterion = "loo")
 
 $~$
 
-## Model diagnostics
+### Model diagnostics
 
 $~$
 
@@ -377,7 +407,7 @@ pp_check(extinction_model_sm, type = "hist", ndraws = 11, binwidth = 1) +
 
 $~$
 
-## Interpreting model output
+### Interpreting model output
 
 $~$
 
@@ -653,7 +683,7 @@ Weibull_extinction_estimates_long <-
 
 $~$
 
-## Create Figure 1
+### Create Figure 1
 
 Make panel a of Figure 1
 
@@ -954,18 +984,14 @@ Combine the 6 panels
 
 $~$
 
-The plot displays an interesting pattern, where the extinction curves for each evolution treatment converge upon one another in the later generations of the experiment. Single pair, full sibling inbreeding is expected to reduce genome-wide heterozygosity to 0.1% of original levels after 10 generations i.e. $100*\frac{1}{2}^{10}$ (except at loci where selection against lethal recessive alleles actively stops homozygosity from occurring). Even very strong selection shall reduce the equilibrium point at which mutation-selection balance occurs (especially for recessive alleles) and it may be that in a fully homozygous state, mutation load is relatively similar across evolution treatments. The shape parameter suggests that lineages carrying male-limited autosomes suffer fewer extinction events during the 'active' inbreeding phase than the other two treatments, then suffer a proportionally similar amount once inbreeding ceases to increase homozygosity. This may be because extinction becomes more environmentally driven or due to new mutations (the latter is unlikely) past this point, processes which we expect to affect all lineages in a similar way. 
-
-$~$
-
-# Productivity analysis
+## Productivity analysis
 
 $~$
 
 
-We have several hypotheses that we test with the productivity data. First, productivity should be negatively correlated with the number of generations inbreeding occurs, due to inbreeding depression. As mentioned above, this effect should be strongest in the first ~8-10 generations of the experiment, during which full-sibling inbreeding should have appreciable effects on genome wide heterozygosity. After this point, the % of heterozygosity across the genome should very small. Hence, each lineage does not get much more inbred past this point, and we expect productivity to stabilise, assuming the lineage is still extant. Second, lineages carrying autosomes that have responded to selection on males should exhibit a smaller drop in productivity compared with lineages caryring the female-adapted or control autosomes, because they have a history of stronger selection that should, in theory, have purged the genome of recessive deleterious alleles.
+We have several hypotheses that we test with the productivity data. First, productivity should be negatively correlated with the number of generations inbreeding occurs, due to inbreeding depression. As mentioned above, this effect should be strongest in the first ~10 generations of the experiment, during which full-sibling inbreeding should have the largest effects on genome wide heterozygosity. After this point, the inbreeding coefficient will be 0.89, while over the next 10 generations it should only increase by a further 0.1 to 0.99. Hence, we expect productivity to stabilise between the 10th and 20th generations, assuming the lineage is still extant. Second, lineages carrying autosomes that have responded to selection on males should exhibit a smaller drop in productivity compared with lineages caryring the female-adapted or control autosomes, because they have a history of stronger selection that should, in theory, have purged the genome of recessive deleterious alleles.
 
-## Load in the data
+### Load in the data
 
 ```{r}
 
@@ -1021,7 +1047,7 @@ Productivity_data_trimmed_extant <-
   filter(Extinct == "No")
 ```
 
-## Do we observe inbreeding depression?
+### Do we observe inbreeding depression?
 
 Let's plot the raw data to get an idea.
 
@@ -1061,11 +1087,11 @@ point_plot_1 / point_plot_2
 
 $~$
 
-## Testing for our casual effect
+### Testing for our casual effect
 
-### Modelling approach
+#### Modelling approach
 
-As mentioned above, we have strong expectations for how full-sibling inbreeding should affect productivity. A halving of genome-wide heterozygosity and the expression of recessive deleterious alleles that comes with this should follow a pattern of exponential decay. This non-linear process can be modelled using the `brms` non-linear syntax. 
+As mentioned above, we have strong expectations for how full-sibling inbreeding should affect productivity. Decreasing genome-wide heterozygosity and the expression of recessive deleterious alleles that comes with this should follow a pattern of exponential decay. This non-linear process can be modelled using the `brms` non-linear syntax. 
 
 Here we model the productivity at generation $t$ via the function $a - e^{\lambda t}$ where $a$ and $\lambda$ are parameters that control the initial productivity and the rate of its decay as generations of inbreeding progress. We force $a$ to be positive using the `exp()` function, which expresses it on the exponential scale. Large $a$ indicates higher starting productivity at generation 0 (we started observation at generation 1, the productivity for which is given by $a - e^{\lambda}$). Positive values of $\lambda$ indicate that productivity declines with inbreeding, which is our strong expectation and clearly the case following inspection of the raw data (see Figure SX). 
 
@@ -1077,7 +1103,7 @@ In the `brms` non-linear syntax, different formulas can be fit for each paramete
 
 $~$
 
-### Simulate the curve, with the priors we will specify
+#### Simulate the curve, with the priors we will specify
 
 ```{r}
 
@@ -1115,7 +1141,7 @@ prior %>%
 
 **Figure XX**: Prior predictive simulation for the productivity decline model. The plot shows the results from 100 prior draws.
 
-### Fit the non-linear model
+#### Fit the non-linear model
 
 ```{r}
 
@@ -1143,7 +1169,7 @@ nonlinear_productivity <-
 
 ```
 
-### How does our curve fit the data
+#### How does our curve fit the data
 
 ```{r}
 
@@ -1531,7 +1557,7 @@ Leaf_plot_fc_productivity_B2 <-
 
 ```
 
-## Figure 2 and Figure SX
+### Figure 2 and Figure SX
 
 ```{r, fig.height=12, fig.width=10}
 (nl_p1 / (Initial_productivity_plot_B1 + decay_plot_B1)) / (Leaf_plot_mc_productivity_B1 + Leaf_plot_mf_productivity_B1 + Leaf_plot_fc_productivity_B1) +
