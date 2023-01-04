@@ -78,9 +78,58 @@ mortality_data <-
          Generation = as.integer(str_remove(Generation, "Gen_")),
          Male_mortality = Female_mortality,
          Female_mortality = if_else(Female_mortality == "FEMALE" | Female_mortality == "BOTH", 1, 0),
-         Male_mortality = if_else(Male_mortality == "MALE" | Male_mortality == "BOTH", 1, 0))
+         Male_mortality = if_else(Male_mortality == "MALE" | Male_mortality == "BOTH", 1, 0)) %>% 
+  rename(Evolution_treatment = Treatment)
+
+# Create a function to build HTML searchable tables
+
+my_data_table <- function(df){
+  datatable(
+    df, rownames=FALSE,
+    autoHideNavigation = TRUE,
+    extensions = c("Scroller",  "Buttons"),
+    options = list(
+      dom = 'Bfrtip',
+      deferRender=TRUE,
+      scrollX=TRUE, scrollY=400,
+      scrollCollapse=TRUE,
+      buttons =
+        list('pageLength', 'colvis', 'csv', list(
+          extend = 'pdf',
+          pageSize = 'A4',
+          orientation = 'landscape',
+          filename = 'mortality_data')),
+      pageLength = 8500
+    )
+  )
+}
+
+my_data_table(mortality_data %>% 
+                select(Mother_strain, Father_strain, Cross, Lineage, Block, Generation, Evolution_treatment, Female_mortality, Male_mortality))
 
 ```
+
+$~$
+
+**Column explanations**
+
+`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the lineage was derived from.
+
+`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the lineage was derived from.
+
+`Cross`: an identifying ID for each of the 36 combinations of `Mother strain` and `Father strain`. 
+
+`Lineage`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each lineage by crossing a single full-sibling dyad.
+
+`Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations.
+
+`Generation`: the generation of the extinction assay, ranging from 1 to 20. 
+
+`Evolution_treatment`: the strains had been exposed to one of three evolutionary conditions for 20 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
+
+`Female_mortality`: a 0 indicates the female survived until she was removed from the 3-day breeding vial. A 1 indicates she died during this period. Females were 1-4 days old when they entered the breeding vial.
+
+`Male_mortality`: see `Female_mortality`, except this column documents male mortality in the breeding vials.
 
 $~$
 
@@ -92,7 +141,7 @@ We fit a binomial model with `Evolution_treatment` and `Block` as fixed effects 
 
 ```{r}
 mortality_model <- 
-  brm(Female_mortality ~ 1 + Treatment + Block + (1|Cross) + (1|Lineage),
+  brm(Female_mortality ~ 1 + Evolution_treatment + Block + (1|Cross) + (1|Lineage),
       data = mortality_data %>% filter(Female_mortality != "NA"),
       family = bernoulli,
       prior = c(prior(normal(0, 2), class = Intercept),
@@ -114,10 +163,10 @@ mortality_predictions <-
   mortality_model %>% 
   as_draws_df() %>% 
   mutate(Control = inv_logit_scaled(b_Intercept),
-         `Female-limited` = inv_logit_scaled(b_Intercept + b_TreatmentFemale),
-         `Male-limited` = inv_logit_scaled(b_Intercept + b_TreatmentMale)) %>% 
+         `Female-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentFemale),
+         `Male-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentMale)) %>% 
   select(Control, `Female-limited`, `Male-limited`)
-
+    
 # put in easy to plot format
 
 mortality_predictions_long <-
@@ -136,7 +185,7 @@ mortality_diff <-
 
 ```
 
-### Build Figure SX
+### Build Figure S1
 
 ```{r}
 mortality_plot <-
@@ -147,7 +196,7 @@ mortality_plot <-
                shape = 21, point_size = 4, stroke = 1.5,
                slab_colour = "black", slab_size = 0.8) +
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  labs(x= "Female mortality (prop.)", y = "Selection response history") +
+  labs(x= "Female mortality (prop.)", y = "Selection response\nhistory") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -173,14 +222,15 @@ mortality_diff_plot <-
         legend.position = "none", #transparent legend panel
         text = element_text(size=14))
 
-mortality_plot / mortality_diff_plot
+mortality_plot / mortality_diff_plot +
+  plot_annotation(tag_levels = 'a')
 ```
 
-**Figure SX**.
+**Figure S1**. Female mortality is less frequent in lineages with female-limited selection response histories, suggesting that male harm may be less intense in these lineages. Panel **a** shows the posterior distribution of the number of mortality events as a proportion of the total number of vials that housed lineages throughout the first 20 generations of the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated mean, with associated 66 and 95% credible intervals. 
 
 $~$
 
-Female mortality is less frequent in lineages with female-limited selection response histories, suggesting that male harm **may** be less intense in these lineages. To avoid this confounding our measure of mutation load, we can censor extinction events that co-occur with female mortality.
+To avoid this confounding our measure of mutation load, we can censor extinction events that co-occur with female mortality.
 
 $~$
 
@@ -288,15 +338,15 @@ my_data_table(extinction_data_wrangled)
 
 `Lineage`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each lineage by crossing a single full-sibling dyad.
 
-`Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations.
+`Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations. Block 1 ran for 29 generations, whereas Block 2 ran for 20 generations.
 
-`Evolution_treatment`: the strains had been exposed to one of three evolutionary conditions for 20 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
+`Evolution_treatment`: the strains had been exposed to one of three evolutionary conditions for 20-29 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
 
 `Gens_to_extinction`: the number of generations the lineage survived until it went extinct.
 
 `Gen_1:29`: a 1 indicates the lineage was extant for the generation in question, while a 0 indicates extinction. Note that we continued propagating surviving lineages from Block 1 until generation 29, which coincided with generation 20 for lineages belonging to the second Block.
 
-`Censored`: if the lineage 1) ended because flies escaped or were killed by something unrelated to the experiment, 2) went extinct because of breeding female mortality or 3) was extant in teh final generation of the experiment, then we coded a value of 1. If the lineage went extinct, we coded a value of 0. This allows us to right censor the data as per the `brms` syntax, thereby preserving the information these censored cases provide on extinction.
+`Censored`: if the lineage 1) ended because flies escaped or were killed by something unrelated to the experiment, 2) went extinct because of breeding female mortality or 3) was extant in the final generation of the experiment, then we coded a value of 1. If the lineage went extinct, we coded a value of 0. This allows us to right censor the data as per the `brms` syntax, thereby preserving the information these censored cases provide on extinction.
 
 $~$
 
@@ -352,15 +402,16 @@ extinction_model_sm <-
       family = weibull,
       bf(Gens_to_extinct | cens(Censored) ~ 1 + Evolution_treatment + Block + (1|Cross),
          shape ~ 1 + Evolution_treatment + Block),
-      prior = c(prior(normal(0, 1), class = Intercept), 
+      # this intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale
+      prior = c(prior(gamma(5, 3.5), class = Intercept),  
                 prior(normal(0, 1), class = b),
                 prior(exponential(1), class = sd),
-                prior(normal(0, 1), class = b, dpar = shape)), 
+                prior(normal(1, 0.5), class = b, dpar = shape)), 
       iter = 8000, warmup = 4000, chains = 4, cores = 4,
       seed = 1, control = list(adapt_delta = .9, max_treedepth = 10),
        file = "Fits/extinction_model_mortality")
 
-extinction_model_sm <- add_criterion(extinction_model_sm, criterion = "loo")
+extinction_model_sm <- add_criterion(extinction_model_sm, criterion = "loo", moment_match = TRUE)
 
 # the model does not converge when we try and fit a treatment * block interaction
 
@@ -369,10 +420,11 @@ extinction_model_mm <-
       family = weibull,
       bf(Gens_to_extinct | cens(Censored) ~ 1 + Evolution_treatment + Block + (1|mm(Mother_strain, Father_strain)),
       shape ~ 1 + Evolution_treatment + Block),
-      prior = c(prior(normal(0, 1), class = Intercept), 
+      # this intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale
+      prior = c(prior(gamma(5, 3.5), class = Intercept), 
                 prior(normal(0, 1), class = b),
                 prior(exponential(1), class = sd),
-                prior(normal(0, 1), class = b, dpar = shape)), 
+                prior(normal(1, 0.5), class = b, dpar = shape)), 
       iter = 8000, warmup = 4000, chains = 4, cores = 4,
       seed = 1, control = list(adapt_delta = 0.9, max_treedepth = 15),
       file = "Fits/extinction_model_mm")
@@ -704,8 +756,8 @@ weibull_surv_plot_B1 <-
   geom_line(aes(y = Prop_lineages_surviving, color = `Evolution treatment`), linetype =5, linewidth = 0.8) +
   scale_fill_manual(values = met.brewer("Hiroshige", 3)) +
   scale_color_manual(values = met.brewer("Hiroshige", 3), guide = "none") +
-  scale_x_continuous(breaks = c(0, 5, 10, 15, 20, 25, 30)) +
-  scale_y_continuous(breaks = c(0, 0.25, .5, 0.75, 1), limits = 0:1) +
+  scale_x_continuous(breaks = c(0, 5, 10, 15, 20, 25, 30), expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(breaks = c(0, 0.25, .5, 0.75, 1), limits = 0:1, expand = expansion(mult = c(0.01, 0.01))) +
   labs(x = "Generations of inbreeding", y = "Proportion of surving lineages", fill = "Selection response\nhistory") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
@@ -1035,19 +1087,87 @@ Productivity_data_clean <-
     Productivity_data) %>% 
   filter(Generation < 21) # only include data collected on the first 20 generations of inbreeding (block 2's endpoint)
 
-# We also include a dataframe that removes lineages that are extinct. This means that 0 values are far less prevalent. We can use the `extinction_data_wrangled$Gens_to_extinct` column to help us here. 
+# We also include a column that specifies if a lineage was extinct. This means we can easily remove 0 values from the data if required. We can use the `extinction_data_wrangled$Gens_to_extinct` column to help us here. 
 
-Productivity_data_trimmed_extant <-
+Productivity_data_clean_2 <-
   left_join(
     Productivity_data_clean,  
     extinction_data_wrangled %>% 
       select(Lineage, Gens_to_extinct)
   ) %>% 
-  mutate(Extinct = if_else(Generation > Gens_to_extinct, "Yes", "No")) %>% 
-  filter(Extinct == "No")
+  mutate(Extinct = if_else(Generation > Gens_to_extinct, "Yes", "No"))
+
+# Create a function to build HTML searchable tables
+
+my_data_table <- function(df){
+  datatable(
+    df, rownames=FALSE,
+    autoHideNavigation = TRUE,
+    extensions = c("Scroller",  "Buttons"),
+    options = list(
+      dom = 'Bfrtip',
+      deferRender=TRUE,
+      scrollX=TRUE, scrollY=400,
+      scrollCollapse=TRUE,
+      buttons =
+        list('pageLength', 'colvis', 'csv', list(
+          extend = 'pdf',
+          pageSize = 'A4',
+          orientation = 'landscape',
+          filename = 'Productivity_data_clean_2')),
+      pageLength = 8500
+    )
+  )
+}
+
+my_data_table(Productivity_data_clean_2 %>% 
+                select(Mother_strain, Father_strain, Cross, Lineage, Block, Generation, Treatment, Extinct, Count_conditions, Female_offspring, Male_offspring, Collection_window_offspring, Pre_window_female_offspring, Pre_window_male_offspring, Pre_window_offspring, Total_female_offspring, Total_male_offspring, Total_offspring))
+
 ```
 
+**Column explanations**
+
+`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the lineage was derived from.
+
+`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the lineage was derived from.
+
+`Cross`: an identifying ID for each of the 36 combinations of `Mother strain` and `Father strain`. 
+
+`Lineage`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each lineage by crossing a single full-sibling dyad.
+
+`Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations. Block 1 ran for 29 generations, whereas Block 2 ran for 20 generations.
+
+`Generation`: the generation of the extinction assay, ranging from 1 to 20. 
+
+`Evolution_treatment`: the strains had been exposed to one of three evolutionary conditions for 20-29 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
+
+`Extinct`: specifies whether the lineage was extinct in this generation.
+
+`Count_conditions`: Normal indicates that the breeding window lasted the standard three days. Extra day indicates the breeding pair were left in the vial for an extra day. This occurred during generation 15 of the second experimental block.
+
+`Female_offspring`: the number of adult females produced by the breeding pair that eclosed during the four-day collection window
+
+`Male_offspring`: as above, but for male offspring.
+
+`Collection_window_offspring`: the sum of `Female_offspring` and `Male_offspring`.
+
+`Pre_window_female_offspring`: females progeny that eclosed prior to the collection window opening.
+
+`Pre_window_male_offspring`: as above, but for male offspring.
+
+`Pre_window_offspring`: the sum of `Pre_window_female_offspring` and `Pre_window_male_offspring`.
+
+`Total_female_offspring`: the sum of `Female_offspring` and `Pre_window_female_offspring`.
+
+`Total_male_offspring`: as above, but for male offspring.
+
+`Total_offspring`: the total number of offspring produced, summed across the sexes and the pre-window and within-window collections.
+
+$~$
+
 ### Do we observe inbreeding depression?
+
+$~$
 
 Let's plot the raw data to get an idea.
 
@@ -1061,7 +1181,7 @@ point_plot_1 <-
   geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
               shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
   geom_smooth(size = 1.5, colour = met.brewer("OKeeffe2")[7]) +
-  geom_smooth(data = Productivity_data_trimmed_extant, size = 1.5, colour = met.brewer("OKeeffe2")[6]) +
+  geom_smooth(data = Productivity_data_clean_2 %>% filter(Extinct == "No"), size = 1.5, colour = met.brewer("OKeeffe2")[6]) +
   theme_tidybayes() +
   coord_cartesian(xlim = c(1, 20)) +
   labs(y = "Collection window\noffspring production", x = "Generation of inbreeding") +
@@ -1075,7 +1195,7 @@ point_plot_2 <-
   geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
               shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
   geom_smooth(size = 1.5, colour = met.brewer("OKeeffe2")[7]) +
-  geom_smooth(data = Productivity_data_trimmed_extant, size = 1.5, colour = met.brewer("OKeeffe2")[6]) +
+  geom_smooth(data = Productivity_data_clean_2 %>% filter(Extinct == "No"), size = 1.5, colour = met.brewer("OKeeffe2")[6]) +
   theme_tidybayes() +
   coord_cartesian(xlim = c(1, 20)) +
   labs(y = "Total offspring production", x = "Generation of inbreeding") +
@@ -1088,6 +1208,8 @@ point_plot_1 / point_plot_2
 $~$
 
 ### Testing for our casual effect
+
+$~$
 
 #### Modelling approach
 
