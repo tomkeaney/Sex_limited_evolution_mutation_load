@@ -535,7 +535,7 @@ Now lets plug these distributions into the equation to find mean estimates of $\
 
 This is the rate of extinction per generation, averaged across all generations. However, the weibull family allows a dynamic rate rather the the constant rate that the exponential constrains it to.
 
-Following this [post](https://discourse.mc-stan.org/t/estimating-survival-curves-with-weibulll-model/6475/2), the weibull survival function can be found using the following transformation:
+Following the `vignette("brms_families")`, the weibull survival function can be found using the following transformation:
 
 $\lambda= \frac{e^\mu}{\gamma(1 + \frac{1}{k})}$
 

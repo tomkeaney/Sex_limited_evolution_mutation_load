@@ -24,6 +24,11 @@ library(DT) # for search- and saveable tables
 library(ggdist) # for ribbon plot
 ```
 
+Click **[here](https://tomkeaney.github.io/Sex_limited_evolution_mutation_load/)** to view the HTML report, which serves as online supplementary material for the associated manuscript (DOI here...), published in _Insert journal name_. The report provides the supplementary methods and documents our empirical analysis, including all modelling specifics. It also includes all supplementary figures and tables, the R script required to produce the analysis, figures and tables, and the raw data.
+
+In an attempt to future proof the availability of our supplementary material, we also include all Supplementary Tables and Figures below. Additionally, our raw data is deposited in the Dryad database [insert link when available](insert link when available)
+
+$~$
 
 **Table S1**. Recipe for food medium used in our experiment. The provided quantities make ~ 1 litre of food.
 
