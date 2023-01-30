@@ -1,0 +1,272 @@
+---
+title: "Selection among males reduces mutation load"
+subtitle: "Supplementary material"
+author: "Thomas Keaney, Heidi Wong, Xiameng Qi, Theresa Jones and Luke Holman"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE)
+```
+
+```{r, include=FALSE}
+library(tidyverse) # tidy style coding
+library(brms) # Bayesian models
+library(bayesplot) # pretty bayes visuals
+library(tidybayes) # Bayesian aesthetics
+library(loo) # to use information criteria in brms models
+library(MetBrewer) # colours
+library(rcartocolor) # more colours
+library(pander) # tables
+library(kableExtra) # tables
+library(patchwork) # putting plots together
+library(DT) # for search- and saveable tables
+library(ggdist) # for ribbon plot
+```
+
+
+**Table S1**. Recipe for food medium used in our experiment. The provided quantities make ~ 1 litre of food.
+
+```{r}
+tibble("Ingredients" = c("Soy flour", "Cornmeal", "Yeast", "Dextrose", "Agar", "Water", "Tegosept", "Acid mix (4 mL orthophosphoric acid, 41 mL propionic acid, 55 mL water to make 100 mL)"),
+       "Quantity" = c("20 g", "73 g", "35 g", "75 g", "6 g", "1000 mL", "17 mL", "14 mL")) %>% 
+  pander(split.cell = 40, split.table = Inf)
+```
+
+$~$
+
+```{r}
+mortality_data <- 
+  read_csv("Data/Mortality_data.csv") %>% 
+  rowid_to_column("Lineage") %>% 
+  pivot_longer(cols = 8:27, names_to = "Generation", values_to = "Female_mortality") %>% 
+  mutate(
+    Generation = as.integer(str_remove(Generation, "Gen_")),
+    Week = case_when(
+    Block == 1 ~ Generation,
+    Block == 2 ~ as.integer(Generation + 9)),
+    Week = as.factor(Week),
+    across(1:7, as.factor),
+    Male_mortality = Female_mortality,
+    Female_mortality = if_else(Female_mortality == "FEMALE" | Female_mortality == "BOTH", 1, 0),
+    Male_mortality = if_else(Male_mortality == "MALE" | Male_mortality == "BOTH", 1, 0)) %>% 
+  rename(Evolution_treatment = Treatment)
+
+```
+
+
+```{r}
+female_mortality_model <- 
+  brm(Female_mortality ~ 1 + Evolution_treatment + (1|Week) + (1|Cross) + (1|Lineage),
+      data = mortality_data %>% filter(Female_mortality != "NA"),
+      family = bernoulli,
+      prior = c(prior(normal(-2, 2), class = Intercept),
+                prior(normal(0, 2), class = b),
+                prior(exponential(1), class = sd)),
+      iter = 8000, warmup = 4000, chains = 4, cores = 4, seed = 1,
+      control = list(adapt_delta = 0.98),
+      file = "Fits/female_mortality_model")
+```
+
+
+```{r}
+
+mortality_predictions <-
+  female_mortality_model %>% 
+  as_draws_df() %>% 
+  mutate(Control = inv_logit_scaled(b_Intercept)*100,
+         `Female-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentFemale)*100,
+         `Male-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentMale)*100) %>% 
+  select(Control, `Female-limited`, `Male-limited`)
+    
+# put in easy to plot format
+
+mortality_predictions_long <-
+  mortality_predictions %>% 
+  pivot_longer(cols = everything(), names_to = "Evolution_treatment", values_to = "Mortality")
+
+# calculate the differences between each treatment
+
+mortality_diff <-
+  mortality_predictions %>% 
+  mutate(`Control - Male-limited` = Control - `Male-limited`,
+         `Male-limited - Female-limited` = `Male-limited` - `Female-limited`,
+         `Control - Female-limited` = Control - `Female-limited`) %>% 
+  pivot_longer(cols = 4:6, names_to = "Difference_contrast", values_to = "Difference") %>% 
+  select(contains("Diff"))
+
+```
+
+
+```{r}
+mortality_plot <-
+  mortality_predictions_long %>% 
+  ggplot(aes(x = Mortality, y = Evolution_treatment)) +
+    stat_halfeye(aes(fill = Evolution_treatment), .width = c(0.66, 0.95), alpha = 1,
+               point_interval = "median_qi", point_fill = "white", 
+               shape = 21, point_size = 4, stroke = 1.5) +
+  scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
+  labs(x= "Female mortality (%)", y = "Selection response\nhistory") +
+  theme_bw() + 
+  theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
+        plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none", #transparent legend panel
+        text = element_text(size=12))
+
+mortality_diff_plot <- 
+  mortality_diff %>% 
+  ggplot(aes(x = Difference, y = fct_relevel(Difference_contrast, "Control - Female-limited", "Male-limited - Female-limited", "Control - Male-limited"))) +
+  stat_halfeye(aes(fill = Difference_contrast), .width = c(0.66, 0.95), alpha = 1,
+               point_interval = "median_qi", point_fill = "white",
+               shape = 21, point_size = 4, stroke = 1.5) + 
+  scale_fill_manual(values = c(carto_pal(7, "Peach")[2], carto_pal(7, "Purp")[1], carto_pal(7, "TealGrn")[1])) +
+  geom_vline(xintercept = 0, linetype = 2, colour = "black", linewidth = 1) +
+  labs(x = "Diff. in mortality (% points)", y = "Treatment contrast") +
+  scale_x_continuous(breaks=seq(-2, 6, 2), limits = c(-3, 7)) +
+  theme_bw() + 
+  theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
+        panel.grid.minor.x = element_blank(),
+        plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
+        legend.position = "none", #transparent legend panel
+        text = element_text(size=12))
+
+  mortality_plot / mortality_diff_plot +
+  plot_annotation(tag_levels = 'a')
+
+```
+
+**Figure S1**. Female mortality is less frequent in lineages with female-limited selection response histories, suggesting that male harm may be less intense in these lineages. Panel **a** shows the posterior distribution of the mean percentage of female mortality events across the total number of vials that housed lineages throughout the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated median, with associated 66 and 95% credible intervals. 
+
+```{r}
+
+extinction_data <- 
+  read_csv("Data/Extinction_data.csv") 
+
+# Block 1 runs for 29 generations, while Block 2 only runs for 20. To calculate the censoring variable, we need to split these by Block, mutate the data, then rebind them 
+
+Block_1 <-
+  extinction_data %>% 
+  filter(Block == "1") %>% 
+  # here we create a censoring column. If the family a) escaped or was killed by something unrelated to the experiment or b) survived the 20 generations of the experiment, then we code a value of 1. If the family went extinct, we code a value of 0. This allows us to right censor the data, thereby preserving the information it provides on extinction.
+  mutate(across(Gen_1:Gen_29, ~replace_na(.x, "Escape")),
+         Censored_alive = if_else(Gen_29 == "YES", 1, 0),
+         Censored_escape = if_else(Gen_29 == "Escape", 1, 0),
+         Censored = Censored_alive + Censored_escape,
+         across(Gen_1:Gen_29, ~if_else(.x == "YES", 1, 0)))
+        
+
+Block_2 <-
+  extinction_data %>% 
+  filter(Block == "2") %>% 
+  # here we create a censoring column. If the family a) escaped or was killed by something unrelated to the experiment or b) survived the 20 generations of the experiment, then we code a value of 1. If the family went extinct, we code a value of 0. This allows us to right censor the data, thereby preserving the information it provides on extinction.
+  mutate(across(Gen_1:Gen_20, ~replace_na(.x, "Escape")),
+         across(Gen_21:Gen_29, ~replace_na(.x, "Not measured")),
+         Censored_alive = if_else(Gen_20 == "YES", 1, 0),
+         Censored_escape = if_else(Gen_20 == "Escape", 1, 0),
+         Censored = Censored_alive + Censored_escape,
+         across(Gen_1:Gen_29, ~if_else(.x == "YES", 1, 0)))
+
+# combine the Blocked data back into a single tibble
+
+extinction_data_wrangled <-
+  rbind(Block_1, Block_2) %>%
+  mutate(across(1:7, as.factor), 
+         Gens_to_extinct = Gen_1 + Gen_2 + Gen_3 + Gen_4 + 
+           Gen_5 + Gen_6 + Gen_7 + Gen_8 + Gen_9 + Gen_10 + 
+           Gen_11 + Gen_12 + Gen_13 + Gen_14 + Gen_15 + Gen_16 + 
+           Gen_17 + Gen_18 + Gen_19 + Gen_20 + Gen_21 + Gen_22 + 
+           Gen_23 + Gen_24 + Gen_25 + Gen_26 + Gen_27 + Gen_28 + Gen_29 + 1) %>% 
+  rename(Evolution_treatment = Treatment, Lineage  = ID) %>% 
+  select(Mother_strain, Father_strain, Cross, Lineage, Block, 
+         Evolution_treatment, Gens_to_extinct, Gen_1:Gen_29, Censored_alive, 
+         Censored_escape, Censored)
+
+# Find the extinctions that co-occur with female mortality
+
+extinction_mortality <-
+  left_join(
+    extinction_data_wrangled %>% 
+      pivot_longer(cols = 8:36, names_to = "Generation", values_to = "Extant") %>% 
+      mutate(Generation = as.integer(str_remove(Generation, "Gen_"))),
+    
+    mortality_data
+  ) %>% 
+  filter(Extant == 0 & Female_mortality == 1) %>% 
+  mutate(Censored_mortality = 1) %>% 
+  select(Lineage, Censored_mortality)
+
+extinction_data_wrangled <- left_join(extinction_data_wrangled, extinction_mortality) %>% 
+  mutate(Censored_mortality = if_else(is.na(Censored_mortality), 0, 1),
+         Censored_2 = Censored + Censored_mortality)
+```
+
+```{r}
+
+data <-
+  read_csv("Data/Productivity_data.csv") %>% 
+  mutate(Week = case_when(
+    Block == 1 ~ Generation,
+    Block == 2 ~ Generation + 9))
+
+Productivity_data <- 
+  left_join(
+    data,
+    
+    data %>% 
+      distinct(Cross, Replicate) %>% 
+      rowid_to_column("Lineage")
+  ) %>% 
+  select(Lineage, everything()) %>% 
+  mutate(across(1:7, as.factor),
+         Week = as.factor(Week),
+         Collection_window_offspring = Female_offspring + Male_offspring,
+         Pre_window_offspring = Pre_window_female_offspring + Pre_window_male_offspring,
+         Total_female_offspring = Female_offspring + Pre_window_female_offspring,
+         Total_male_offspring = Male_offspring + Pre_window_male_offspring,
+         Total_offspring = Total_female_offspring + Total_male_offspring) %>% 
+  # In one generation of the experiment (b1 = G24 & B2 = G15) sibling pairs were setup a day early and removed from their vials at the regular time, meaning that they had an extra day to produce offspring. To correct for this we multiply offspring counts by 0.75.
+  mutate(Collection_window_offspring = if_else(Count_conditions == "Extra day", 
+                                               round(Collection_window_offspring * 0.75),  Collection_window_offspring),
+         # note that because everything is moved a day early, pre-window offspring counts will still be inflated even after this correction
+         Pre_window_offspring = if_else(Count_conditions == "Extra day", 
+                                        round(Pre_window_offspring * 0.75),  Pre_window_offspring))
+  
+# Combine with mortality and extinction data to filter out vials that went extinct because of female mortality
+
+Productivity_mortality <-
+  left_join(
+    Productivity_data %>% 
+      filter(Generation < 21), #%>% only include data collected on the first 20 generations of inbreeding (block 2's endpoint)
+    mortality_data %>% select(Lineage, Generation, Female_mortality)
+  )
+
+# We also include a column that specifies if a lineage was extinct. This means we can easily remove 0 values from the data if required. We can use the `extinction_data_wrangled$Gens_to_extinct` column to help us here. 
+
+Productivity_data_clean <-
+  left_join(
+    Productivity_mortality,  
+    extinction_data_wrangled %>% 
+      select(Lineage, Gens_to_extinct, Censored_mortality)
+  ) %>% 
+  mutate(Vial_setup = if_else(Generation > Gens_to_extinct, "No", "Yes")) %>% 
+  filter(Collection_window_offspring != "NA")
+```
+
+```{r}
+  Productivity_data_clean %>% 
+  ggplot(aes(x = Generation, y = Pre_window_offspring/Total_offspring)) +
+  geom_jitter(aes(size = Total_offspring), colour = met.brewer("OKeeffe2")[2], fill = met.brewer("OKeeffe2")[3], width = 0.2, 
+              shape = 21, stroke =1, alpha = 0.25) +
+  scale_size(range = c(0, 5), name = "Total offspring") +
+  scale_y_continuous(limits = c(0,1), expand = expansion(mult = c(0.01, 0.01))) +
+  theme_tidybayes() +
+  coord_cartesian(xlim = c(1, 20)) +
+  labs(y = "Prop. offspring eclosing prior to day 10", 
+       x = "Generation of inbreeding",
+       ) +
+  theme(text = element_text(size = 12),
+        legend.position = "bottom")
+```
+
+**Figure S2**. Raw proportion of productivity that occurred prior to the eclosion window, for the first 20 generations of the experiment.

@@ -129,7 +129,7 @@ $~$
 
 `Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations.
 
-`Week`: the week that the generation of each block was conducted in. Note that blocks overlap between weeks 9-20.
+`Week`: the week that the generation of each block was conducted in. Laboratory conditions may have differed slightly between weeks. For example, a new batch of food was cooked for each week. Note that blocks overlap between weeks 9-20.
 
 `Generation`: the generation of the extinction assay, ranging from 1 to 20. 
 
@@ -153,9 +153,9 @@ We fit moderately informative priors, with the aim to regularise our posterior e
 
 Note that each of these priors is expressed on the logit scale, due to the binomial logit link.
 
-$\alpha$ (the intercepts) ~ Normal($\mu$ = 0, $\sigma$ = 2)
+$\alpha$ (the intercepts) ~ Normal($\mu$ = -2, $\sigma$ = 2)
 
-$\beta$ (the fixed effects) ~ Normal($\mu$ = 0, $\sigma$ = 1) 
+$\beta$ (the fixed effects) ~ Normal($\mu$ = 0, $\sigma$ = 2) 
 
 $\sigma$ ~ Exponential(rate = 1)
 
@@ -165,8 +165,8 @@ female_mortality_model <-
   brm(Female_mortality ~ 1 + Evolution_treatment + (1|Week) + (1|Cross) + (1|Lineage),
       data = mortality_data %>% filter(Female_mortality != "NA"),
       family = bernoulli,
-      prior = c(prior(normal(0, 2), class = Intercept),
-                prior(normal(0, 1), class = b),
+      prior = c(prior(normal(-2, 2), class = Intercept),
+                prior(normal(0, 2), class = b),
                 prior(exponential(1), class = sd)),
       iter = 8000, warmup = 4000, chains = 4, cores = 4, seed = 1,
       control = list(adapt_delta = 0.98),
@@ -178,14 +178,12 @@ female_mortality_model <-
 
 ```{r}
 
-# these are specific to block 1, but this doesn't really matter because there is no interaction between treatment and block.
-
 mortality_predictions <-
   female_mortality_model %>% 
   as_draws_df() %>% 
-  mutate(Control = inv_logit_scaled(b_Intercept),
-         `Female-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentFemale),
-         `Male-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentMale)) %>% 
+  mutate(Control = inv_logit_scaled(b_Intercept)*100,
+         `Female-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentFemale)*100,
+         `Male-limited` = inv_logit_scaled(b_Intercept + b_Evolution_treatmentMale)*100) %>% 
   select(Control, `Female-limited`, `Male-limited`)
     
 # put in easy to plot format
@@ -213,11 +211,10 @@ mortality_plot <-
   mortality_predictions_long %>% 
   ggplot(aes(x = Mortality, y = Evolution_treatment)) +
     stat_halfeye(aes(fill = Evolution_treatment), .width = c(0.66, 0.95), alpha = 1,
-               point_interval = "mean_qi", point_fill = "white", 
-               shape = 21, point_size = 4, stroke = 1.5,
-               slab_colour = "black", slab_size = 0.8) +
+               point_interval = "median_qi", point_fill = "white", 
+               shape = 21, point_size = 4, stroke = 1.5) +
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  labs(x= "Female mortality (prop.)", y = "Selection response\nhistory") +
+  labs(x= "Female mortality (%)", y = "Selection response\nhistory") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -227,15 +224,14 @@ mortality_plot <-
 
 mortality_diff_plot <- 
   mortality_diff %>% 
-  ggplot(aes(x = Difference, y = fct_relevel(Difference_contrast, "Female - Control", "Male - Female", "Male - Control"))) +
+  ggplot(aes(x = Difference, y = fct_relevel(Difference_contrast, "Control - Female-limited", "Male-limited - Female-limited", "Control - Male-limited"))) +
   stat_halfeye(aes(fill = Difference_contrast), .width = c(0.66, 0.95), alpha = 1,
-               point_interval = "mean_qi", point_fill = "white",
-               shape = 21, point_size = 4, stroke = 1.5,
-               slab_colour = "black", slab_size = 0.8) + 
+               point_interval = "median_qi", point_fill = "white",
+               shape = 21, point_size = 4, stroke = 1.5) + 
   scale_fill_manual(values = c(carto_pal(7, "Peach")[2], carto_pal(7, "Purp")[1], carto_pal(7, "TealGrn")[1])) +
   geom_vline(xintercept = 0, linetype = 2, colour = "black", linewidth = 1) +
-  labs(x = "Diff. in mortality", y = "Treatment contrast") +
-  #scale_x_continuous(breaks=seq(-4, 6, 2)) +
+  labs(x = "Diff. in mortality (% points)", y = "Treatment contrast") +
+  scale_x_continuous(breaks=seq(-2, 6, 2), limits = c(-3, 7)) +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         panel.grid.minor.x = element_blank(),
@@ -243,11 +239,12 @@ mortality_diff_plot <-
         legend.position = "none", #transparent legend panel
         text = element_text(size=14))
 
-mortality_plot / mortality_diff_plot +
+  mortality_plot / mortality_diff_plot +
   plot_annotation(tag_levels = 'a')
+
 ```
 
-**Figure S1**. Female mortality is less frequent in lineages with female-limited selection response histories, suggesting that male harm may be less intense in these lineages. Panel **a** shows the posterior distribution of the number of mortality events as a proportion of the total number of vials that housed lineages throughout the first 20 generations of the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated mean, with associated 66 and 95% credible intervals. 
+**Figure S1**. Female mortality is less frequent in lineages with female-limited selection response histories, suggesting that male harm may be less intense in these lineages. Panel **a** shows the posterior distribution of the mean percentage of female mortality events across the total number of vials that housed lineages throughout the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated median, with associated 66 and 95% credible intervals. 
 
 $~$
 
@@ -321,7 +318,7 @@ extinction_mortality <-
 
 extinction_data_wrangled <- left_join(extinction_data_wrangled, extinction_mortality) %>% 
   mutate(Censored_mortality = if_else(is.na(Censored_mortality), 0, 1),
-         Censored = Censored + Censored_mortality)
+         Censored_2 = Censored + Censored_mortality)
 
 # Create a function to build HTML searchable tables
 
@@ -371,6 +368,7 @@ my_data_table(extinction_data_wrangled)
 
 $~$
 
+
 ### Modelling approach
 
 $~$
@@ -405,9 +403,9 @@ We fit moderately informative priors, with the aim to regularise our posterior e
 
 Note that each of these priors is expressed on the log scale, due to the weibull log link.
 
-$\alpha$ (the intercepts) ~ Gamma(shape = 5, rate = 3.5)
+$\alpha$ (the intercepts) ~ Gamma(shape = 5, rate = 3)
 
-This intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale.
+This intercept prior predicts an appropriate starting point for per generation extinction rate on the log scale.
 
 $\beta$ (the fixed effects) ~ Normal($\mu$ = 0, $\sigma$ = 1) 
 
@@ -418,15 +416,35 @@ $k$ (The weibull shape parameter) ~ Normal($\mu$ = 0, $\sigma$ = 0.5)
 
 ### Fit the models
 
-```{r}
+First with the female mortality associated extinctions included as extinction events that reflect mutation load
 
-extinction_model_sm <-
+```{r}
+extinction_model_sm_full <-
   brm(data = extinction_data_wrangled,
       family = weibull,
       bf(Gens_to_extinct | cens(Censored) ~ 1 + Evolution_treatment + Block + (1|Cross),
          shape ~ 1 + Evolution_treatment + Block),
       # this intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale
-      prior = c(prior(gamma(5, 3.5), class = Intercept),  
+      prior = c(prior(gamma(5, 3), class = Intercept, lb = 0),  
+                prior(normal(0, 1), class = b),
+                prior(exponential(1), class = sd),
+                prior(normal(0, 0.5), class = b, dpar = shape)), 
+      iter = 8000, warmup = 4000, chains = 4, cores = 4,
+      seed = 1, control = list(adapt_delta = .9, max_treedepth = 10),
+       file = "Fits/extinction_model_full")
+```
+
+Censor these mortality event associated extinctions and refit the model. Fit and compare with the multi-membership model.
+
+```{r}
+
+extinction_model_sm <-
+  brm(data = extinction_data_wrangled,
+      family = weibull,
+      bf(Gens_to_extinct | cens(Censored_2) ~ 1 + Evolution_treatment + Block + (1|Cross),
+         shape ~ 1 + Evolution_treatment + Block),
+      # this intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale
+      prior = c(prior(gamma(5, 3), class = Intercept, lb = 0),  
                 prior(normal(0, 1), class = b),
                 prior(exponential(1), class = sd),
                 prior(normal(0, 0.5), class = b, dpar = shape)), 
@@ -441,15 +459,15 @@ extinction_model_sm <- add_criterion(extinction_model_sm, criterion = "loo")
 extinction_model_mm <-
   brm(data = extinction_data_wrangled,
       family = weibull,
-      bf(Gens_to_extinct | cens(Censored) ~ 1 + Evolution_treatment + Block + (1|mm(Mother_strain, Father_strain)),
+      bf(Gens_to_extinct | cens(Censored_2) ~ 1 + Evolution_treatment + Block + (1|mm(Mother_strain, Father_strain)),
       shape ~ 1 + Evolution_treatment + Block),
       # this intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale
-      prior = c(prior(gamma(5, 3.5), class = Intercept), 
+      prior = c(prior(gamma(5, 3), class = Intercept, lb = 0), 
                 prior(normal(0, 1), class = b),
                 prior(exponential(1), class = sd),
                 prior(normal(0, 0.5), class = b, dpar = shape)), 
       iter = 8000, warmup = 4000, chains = 4, cores = 4,
-      seed = 1, control = list(adapt_delta = 0.98, max_treedepth = 15),
+      seed = 2, control = list(adapt_delta = 0.98, max_treedepth = 15),
       file = "Fits/extinction_model_mm")
 
 extinction_model_mm <- add_criterion(extinction_model_mm, criterion = "loo")
@@ -527,7 +545,7 @@ Then we can find survival at generation $t$ using
 
 $S = e^{-(\frac{t}{\lambda})^k}$
 
-We plug in a vector with 16000 draws from the posterior distribution for 1) \mu of each inheritance treatment and 2) $k$ the shape parameter to find distributions of the proportion of surviving lineages at each generation.
+We plug in a vector with 16000 draws from the posterior distribution for 1) $\mu$ of each inheritance treatment and 2) $k$ the shape parameter to find distributions of the proportion of surviving lineages at each generation.
 
 ```{r}
 
@@ -825,7 +843,7 @@ new_data <- expand_grid(
 
 weibull_estimates <- 
   fitted(extinction_model_sm, newdata = new_data,
-         re_formula = NA, summary = F) %>% 
+         re_formula = NA, summary = F) %>%  #robust = T) %>% 
   as_tibble() %>% 
   rename(`Female-limited_1` = V1, `Female-limited_2` = V2, `Male-limited_1` = V3, `Male-limited_2` = V4, Control_1 = V5, Control_2 = V6)
 
@@ -868,12 +886,11 @@ ext_p1_B1 <-
   filter(Block == "1") %>% 
   ggplot(aes(x = generations, y = `Evolution treatment`)) +
   stat_halfeye(aes(fill = `Evolution treatment`), .width = c(0.66, 0.95), alpha = 1,
-               point_interval = "mean_qi", point_fill = "white",
-               shape = 21, point_size = 4, stroke = 1.5,
-               slab_colour = "black", slab_size = 0.8) + # width indicates the uncertainty intervals: here we have 66% and 95% intervals + # width indicates the uncertainty intervals: here we have 66% and 95% intervals+
+               point_interval = "median_qi", point_fill = "white",
+               shape = 21, point_size = 4, stroke = 1.5) + # width indicates the uncertainty intervals: here we have 66% and 95% intervals + # width indicates the uncertainty intervals: here we have 66% and 95% intervals+
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
   labs(x = "Generations till extinction", y = "Selection response history") +
-  scale_x_continuous(breaks=seq(4, 12, 1)) +
+  scale_x_continuous(breaks=seq(4, 12, 1), limits = c(4, 12)) +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         panel.grid.minor.x = element_blank(), 
@@ -887,9 +904,8 @@ ext_p2_B1 <-
   weibull_contrasts_B1 %>% 
   ggplot(aes(x = generation_diff, y = fct_relevel(Contrast, "Female - Control", "Male - Female", "Male - Control"))) +
   stat_halfeye(aes(fill = Contrast), .width = c(0.66, 0.95), alpha = 1,
-               point_interval = "mean_qi", point_fill = "white",
-               shape = 21, point_size = 4, stroke = 1.5,
-               slab_colour = "black", slab_size = 0.8) + 
+               point_interval = "median_qi", point_fill = "white",
+               shape = 21, point_size = 4, stroke = 1.5) + 
   scale_fill_manual(values = c(carto_pal(7, "Peach")[2], carto_pal(7, "Purp")[1], carto_pal(7, "TealGrn")[1])) +
   geom_vline(xintercept = 0, linetype = 2, colour = "black", size = 1) +
   labs(x = "Diff. in generations till extinction", y = "Treatment contrast") +
@@ -1069,14 +1085,13 @@ Combine the 6 panels
 (weibull_surv_plot_B1 / (ext_p1_B1 + ext_p2_B1)) / (Leaf_plot_mc_B1 + Leaf_plot_mf_B1 + Leaf_plot_fc_B1) +
   plot_annotation(tag_levels = 'a')
 ```
-**Figure 1**. Panel **a** shows extinction trajectories under increasing stress from inbreeding. **b** shows the posterior distribution with mean and associated 66 and 95% credible intervals for the average number of generations that lineages with different selection response histories survived inbreeding exposure. **c** shows the distribution of the difference between each selection response history in generations survived. **d-f** 'leaf plots' that visualise these contrasts in more detail. These leaf plots depict the difference in the proportion of lineages surviving for each generation. The innermost colour shows the mean, while the middle and outmost bars show 66 and 95% credible intervals.   
+**Figure 1**. Panel **a** shows extinction trajectories under increasing stress from inbreeding. The black dotted line is the probability that a randomly selected autosomal locus remains heterozygous. **b** shows the posterior distribution of the median with associated 66 and 95% credible intervals for the number of generations that lineages with different selection response histories survived inbreeding exposure. **c** shows the distribution of the difference between each selection response history in generations survived. **d-f** 'leaf plots' that depict the difference in the proportion of lineages surviving in each generation. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.   
 
 $~$
 
 ## Productivity analysis
 
 $~$
-
 
 We have several hypotheses that we test with the productivity data. First, productivity should be negatively correlated with the number of generations inbreeding occurs, due to inbreeding depression. As mentioned above, this effect should be strongest in the first ~10 generations of the experiment, during which full-sibling inbreeding should have the largest effects on genome wide heterozygosity. After this point, the inbreeding coefficient will be 0.89, while over the next 10 generations it should only increase by a further 0.1 to 0.99. Hence, we expect productivity to stabilise between the 10th and 20th generations, assuming the lineage is still extant. Second, lineages carrying autosomes that have responded to selection on males should exhibit a smaller drop in productivity compared with lineages carrying the female-adapted or control autosomes, because they have a history of stronger selection that should, in theory, have purged the genome of recessive deleterious alleles.
 
@@ -1113,38 +1128,36 @@ Productivity_data <-
          Pre_window_offspring = if_else(Count_conditions == "Extra day", 
                                         round(Pre_window_offspring * 0.75),  Pre_window_offspring))
   
-# Make a tibble that only includes data from the first 20 generations of the experiment (Block 1 ran for 29 gens, while Block 2 ran for 20). Then remove lineage's that at some point were lost because of handling errors and thus do not have data from that generation onwards.
+# Combine with mortality and extinction data to filter out vials that went extinct because of female mortality
 
-Productivity_data_clean <-
+Productivity_mortality <-
   left_join(
     Productivity_data %>% 
       filter(Generation < 21), #%>% only include data collected on the first 20 generations of inbreeding (block 2's endpoint)
     mortality_data %>% select(Lineage, Generation, Female_mortality)
-  ) #%>% 
-     # filter(Collection_window_offspring != "NA") #%>% # remove NA values
-     # group_by(Lineage, Block) %>% # these remaining lines remove lineage's that had an NA value 
-    #  count() %>% 
-    #  ungroup() %>% 
-    #  filter(n == 20), # remove lineage's that have NA values for productivity in at least one generation
-    
-   # Productivity_data) %>% 
-  #filter(Generation < 21) # only include data collected on the first 20 generations of inbreeding (block 2's endpoint)
+  )
 
 # We also include a column that specifies if a lineage was extinct. This means we can easily remove 0 values from the data if required. We can use the `extinction_data_wrangled$Gens_to_extinct` column to help us here. 
 
-Productivity_data_clean_2 <-
+Productivity_data_clean <-
   left_join(
-    Productivity_data_clean,  
+    Productivity_mortality,  
     extinction_data_wrangled %>% 
       select(Lineage, Gens_to_extinct, Censored_mortality)
   ) %>% 
-  mutate(Vial_setup = if_else(Generation > Gens_to_extinct, "No", "Yes"),
-         Collection_window_offspring = case_when(
-           Censored_mortality == 1 & Vial_setup == "No" ~ NA_real_,
-           TRUE ~ Collection_window_offspring
-         )) %>% 
-  filter(Collection_window_offspring != "NA" |
-          Female_mortality == 0)
+  mutate(Vial_setup = if_else(Generation > Gens_to_extinct, "No", "Yes")) %>% 
+  filter(Collection_window_offspring != "NA")
+
+# remove mortality events and their consequences in later generations
+
+Productivity_data_clean_2 <-
+  Productivity_data_clean %>%
+  mutate(Collection_window_offspring = case_when(
+    Censored_mortality == 1 & Vial_setup == "No" ~ NA_real_,
+    TRUE ~ Collection_window_offspring)) %>% 
+  filter(!is.na(Collection_window_offspring),
+         Female_mortality != 1 | is.na(Female_mortality))
+
 
 # Create a function to build HTML searchable tables
 
@@ -1169,7 +1182,7 @@ my_data_table <- function(df){
   )
 }
 
-my_data_table(Productivity_data_clean_2 %>% 
+my_data_table(Productivity_data_clean %>% 
                 select(Mother_strain, Father_strain, Cross, Lineage, Block, Week, Generation, Treatment, Vial_setup, Count_conditions, Female_offspring, Male_offspring, Collection_window_offspring, Pre_window_female_offspring, Pre_window_male_offspring, Pre_window_offspring, Total_female_offspring, Total_male_offspring, Total_offspring))
 
 ```
@@ -1190,9 +1203,9 @@ my_data_table(Productivity_data_clean_2 %>%
 
 `Generation`: the generation of the extinction assay, ranging from 1 to 20. 
 
-`Evolution_treatment`: the strains had been exposed to one of three evolutionary conditions for 20-29 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
+`Treatment`: the strains had been exposed to one of three evolutionary conditions for 20-29 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
 
-`Extinct`: specifies whether the lineage was extinct in this generation.
+`Vial setup`: specifies whether a vial was setup for a given lineage in a given generation. Vials were not setup when the lineage was extinct, or when it could no longer be included in the experiment due to escape/ handling error.
 
 `Count_conditions`: Normal indicates that the breeding window lasted the standard three days. Extra day indicates the breeding pair were left in the vial for an extra day. This occurred during generation 15 of the second experimental block.
 
@@ -1216,57 +1229,46 @@ my_data_table(Productivity_data_clean_2 %>%
 
 $~$
 
+```{r, include=FALSE}
+
 ### Do we observe inbreeding depression?
 
-$~$
+#$~$
 
-Let's plot the raw data to get an idea.
+#Let's plot the raw data to get an idea.
 
-```{r}
-
-# Collection window plot
+# Full data, no mortality removals
 
 point_plot_1 <-
-  Productivity_data_clean_2 %>%
+  Productivity_data_clean %>%
   ggplot(aes(x = Generation, y = Collection_window_offspring)) +
   geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
               shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
-  geom_smooth(size = 1.5, colour = met.brewer("OKeeffe2")[7]) +
-  geom_smooth(data = Productivity_data_clean_2 %>% filter(Vial_setup == "Yes"), size = 1.5, colour = met.brewer("OKeeffe2")[6]) +
+  # All the data
+  geom_smooth(size = 1.5, colour = met.brewer("OKeeffe2")[4]) +
+  geom_smooth(data = Productivity_data_clean %>% filter(Vial_setup == "Yes"), size = 1.5, colour = met.brewer("OKeeffe2")[4]) +
+  # Mortality events and their consequences removed
+  geom_smooth(data = Productivity_data_clean_2 %>% filter(Vial_setup == "Yes"), size = 1.5, colour = met.brewer("OKeeffe2")[6], linetype = 2) +
+  geom_smooth(data = Productivity_data_clean_2, size = 1.5, colour = met.brewer("OKeeffe2")[6], linetype = 2) +
   theme_tidybayes() +
-  scale_y_continuous(limits = c(0,150), expand = expansion(mult = c(0.01, .01))) +
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150), limits = c(0,150), expand = expansion(mult = c(0.01, .01))) +
   scale_x_continuous(limits = c(1,20), expand = c(0.01, 0)) +
   labs(y = "Collection window\noffspring production", x = "Generation of inbreeding") +
   theme(text = element_text(size = 14))
 
-# Total productivity plot
+point_plot_1
 
-point_plot_2 <-
-  Productivity_data_clean_2 %>% 
-  ggplot(aes(x = Generation, y = Total_offspring)) +
-  geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
-              shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
-  geom_smooth(size = 1.5, colour = met.brewer("OKeeffe2")[7]) +
-  geom_smooth(data = Productivity_data_clean_2 %>% filter(Vial_setup == "Yes"), size = 1.5, colour = met.brewer("OKeeffe2")[6]) +
-  theme_tidybayes() +
-  scale_y_continuous(limits = c(0,150), expand = expansion(mult = c(0.01, .01))) +
-  scale_x_continuous(limits = c(1,20), expand = c(0.01, 0)) +
-  labs(y = "Total offspring production", x = "Generation of inbreeding") +
-  theme(text = element_text(size = 14))
-
-point_plot_1 / point_plot_2 +
-    plot_annotation(tag_levels = 'a')
+#Figure S2**. Inbreeding depression affects lineage productivity. The plot shows offspring counted during the offspring collection window,where the light curves shows the decline in productivity with extinct lineages counted as zeros (the steeper curve), while and the decline when only extant lineages were considered (the shallower curve). The dotted curves show the same data, except with productivity counts affected by female mortality events filtered out. 
 
 ```
 
-**Figure S2**. Inbreeding depression in lineage productivity. **a** shows offspring counted during the offspring collection window, while **b** shows these offspring summed with early emerging offspring that preceded the collection window. The dark curve shows the decline in productivity with extinct lineages counted as zeros, while the lighter curve shows the decline when only extant lineages were considered. 
-$~$
 
-What effect does evolutionary history appear to have on productivity decline?
+```{r, include=FALSE}
 
-```{r}
+#What effect does evolutionary history appear to have on productivity decline?
+
 treatment_plot <-
-  Productivity_data_clean_2 %>%
+  Productivity_data_clean %>%
   ggplot(aes(x = Generation, y = Collection_window_offspring)) +
   geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
               shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
@@ -1284,6 +1286,28 @@ treatment_plot
 
 $~$
 
+**Do offspring emerge prior to day 10 throughout the experiment?**
+
+```{r}
+  Productivity_data_clean %>% 
+  ggplot(aes(x = Generation, y = Pre_window_offspring/Total_offspring)) +
+  geom_jitter(aes(size = Total_offspring), colour = met.brewer("OKeeffe2")[2], fill = met.brewer("OKeeffe2")[3], width = 0.2, 
+              shape = 21, stroke =1, alpha = 0.25) +
+  scale_size(range = c(0, 5), name = "Total offspring") +
+  scale_y_continuous(limits = c(0,1), expand = expansion(mult = c(0.01, 0.01))) +
+  theme_tidybayes() +
+  coord_cartesian(xlim = c(1, 20)) +
+  labs(y = "Prop. offspring eclosing prior to day 10", 
+       x = "Generation of inbreeding",
+       ) +
+  theme(text = element_text(size = 14),
+        legend.position = "bottom")
+```
+
+**Figure S2**. Raw proportion of productivity that occurred prior to the eclosion window, for the first 20 generations of the experiment.
+
+$~$
+
 ### Testing for our casual effect
 
 $~$
@@ -1298,7 +1322,7 @@ We model inbreeding depression while including zero values for all rows where a 
 
 **Fixed and random effects**
 
-In the `brms` non-linear syntax, different formulas can be fit for each parameter. We fit the same fixed effects for $a$ and $\lambda$: `Evolution treatment` and  `Block`. We fit 'Lineage' as a random effect to account for repeated measurements taken on each lineage for $a$, but are unable to do this for $\lambda$, as individual lineage productivity curves are highly heteroskedastic, and are skewed by extinction events. To minimise pseudoreplication for $\lambda$, we fit `Cross` as a random effect (currently only on $\lambda$), as we do for the extinction data.
+In the `brms` non-linear syntax, different formulas can be fit for each parameter. We fit the same fixed effect for $a$ and $\lambda$: `Evolution treatment`. We fit `Lineage` as a random effect to account for repeated measurements taken on each lineage for $a$, but are unable to do this for $\lambda$, as individual lineage productivity curves are highly heteroskedastic, and are skewed by extinction events. To minimise pseudoreplication for $\lambda$, we fit `Cross` as a random effect, as we do for the extinction data. We also fit `Week` as a random effect for both parameters; this controls for environmental variation between generations.
 
 **Priors**
 
@@ -1306,25 +1330,19 @@ We fit moderately informative priors, with the aim to regularise our posterior e
 
 Note that $\alpha$ related priors are expressed on the exponential scale.
 
-$\alpha$ (initial productivity) ~ Normal($\mu$ = 4.5, $\sigma$ = 0.5)
+$\alpha$ (initial productivity) ~ Normal($\mu$ = 4.2, $\sigma$ = 0.25)
 
-The effect of Block 2 on $\alpha$ also needs a prior when using this syntax
+$\lambda$ (the rate of decay) ~ Gamma(shape = 0.8, rate = 4) 
 
-$\alpha_{Block}$ ~ Normal($\mu$ = 0, $\sigma$ = 0.5)
+$\sigma$ for $\alpha$ ~ Gamma(shape = 2, rate = 1.5)
 
-$\lambda$ (the rate of decay) ~ Normal($\mu$ = 0.2, $\sigma$ = 0.1) 
-
-The effect of Block 2 on $\alpha$ also needs a prior when using this syntax
-
-$\lambda_{Block}$ ~ Normal($\mu$ = 0, $\sigma$ = 0.1)
-
-$\sigma$ for $\alpha$ ~ Gamma(shape = 3, rate = 1.5)
-
-$\sigma$ for $\lambda$ ~ Gamma(shape = 0.1, rate = 2)
+$\sigma$ for $\lambda$ ~ Gamma(shape = 0.25, rate = 2)
 
 $~$
 
 #### Simulate the curve, with the priors we will specify
+
+Prior predictive simulation for the productivity decline model. The plot shows the results from 100 prior draws.
 
 ```{r}
 
@@ -1341,17 +1359,8 @@ set.seed(16)
 
 prior <-
   tibble(index = 1:n,
-         a   = rnorm(n, mean = 4.5, sd = 0.5),
-         lambda     = rnorm(n, mean = 0.3, sd = 0.2)) %>% 
-  slice_sample(n = n_draws) %>% 
-  expand(nesting(index, a, lambda),
-         Generation = seq(from = 0, to = 20, length.out = 1e2)) %>% 
-  mutate(productivity = exp(a - lambda * Generation)) 
-
-prior <-
-  tibble(index = 1:n,
-         a   = rnorm(n, mean = 5.48, sd = 0.18),
-         lambda     = rnorm(n, mean = 0.6, sd = 0.04)) %>% 
+         a   = rnorm(n, mean = 4.2, sd = 0.25),
+         lambda = rgamma(n, 0.8, 4)) %>% 
   slice_sample(n = n_draws) %>% 
   expand(nesting(index, a, lambda),
          Generation = seq(from = 0, to = 20, length.out = 1e2)) %>% 
@@ -1362,14 +1371,14 @@ prior %>%
   ggplot(aes(x = Generation, y = productivity, group = index)) +
   geom_line(size = 1/2, alpha = 1/4, colour = met.brewer("Hiroshige")[2]) +
   theme_tidybayes() +
-  scale_y_continuous(limits = c(0,400), expand = expansion(mult = c(0, .1))) +
+  scale_y_continuous(limits = c(0,200), expand = expansion(mult = c(0, .1))) +
   scale_x_continuous(limits = c(0,20), expand = c(0, 0)) +
   labs(y = "Lineage productivity", x = "Generation of inbreeding") +
   theme(text = element_text(size = 14))
 
 ```
 
-**Figure XX**: Prior predictive simulation for the productivity decline model. The plot shows the results from 100 prior draws.
+$~$
 
 #### Fit the non-linear model
 
@@ -1380,34 +1389,58 @@ nonlinear_productivity <-
          a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
          lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
          nl = TRUE),
-      data = Productivity_data_clean_2,
-      family = negbinomial(link = "identity"),
-      prior = c(prior(normal(4, 0.2), class = b, coef = Intercept, nlpar = "a"),
+      data = Productivity_data_clean,
+      prior = c(prior(normal(4.2, 0.25), class = b, coef = Intercept, nlpar = "a"),
                 prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
                 prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
-                prior(normal(0.2, 0.1), class = b, coef = Intercept, nlpar = "lambda"),
-                prior(normal(0, 0.1), class = b, coef = TreatmentFemale, nlpar = "lambda"),
-                prior(normal(0, 0.1), class = b, coef = TreatmentMale, nlpar = "lambda"),
+                prior(gamma(0.8, 4), class = b, coef = Intercept, nlpar = "lambda"),
+                prior(normal(0, 0.2), class = b, coef = TreatmentFemale, nlpar = "lambda"),
+                prior(normal(0, 0.2), class = b, coef = TreatmentMale, nlpar = "lambda"),
                 prior(gamma(2, 1.5), class = sd, nlpar = "a"),
                 prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
-      control = list(adapt_delta = 0.8, max_treedepth = 12), seed = 1,
-      iter = 8000, warmup = 4000, chains = 4, cores = 4,
-      file = "Fits/non_linear_productivity_model")
+      control = list(adapt_delta = 0.9, max_treedepth = 12), seed = 5,
+      iter = 20000, warmup = 5000, chains = 4, cores = 4,
+      file = "Fits/non_linear_productivity_model_no_fam")
+
+# with female mortality events removed
+
+nonlinear_productivity_mortality <- 
+  brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
+         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
+         lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
+         nl = TRUE),
+      data = Productivity_data_clean_2,
+      prior = c(prior(normal(4.2, 0.25), class = b, coef = Intercept, nlpar = "a"),
+                prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
+                prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
+                prior(gamma(0.8, 4), class = b, coef = Intercept, nlpar = "lambda"),
+                prior(normal(0, 0.2), class = b, coef = TreatmentFemale, nlpar = "lambda"),
+                prior(normal(0, 0.2), class = b, coef = TreatmentMale, nlpar = "lambda"),
+                prior(gamma(2, 1.5), class = sd, nlpar = "a"),
+                prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
+      control = list(adapt_delta = 0.9, max_treedepth = 14), seed = 5,
+      iter = 20000, warmup = 5000, chains = 4, cores = 4,
+      file = "Fits/non_linear_productivity_model_mortality")
 
 ```
 
+$~$
+
 #### Build figure 2
+
+$~$
 
 ```{r}
 
 
 new_data <- 
   Productivity_data_clean_2 %>% 
-  select(Generation, Treatment, Block) %>%
+  select(Generation, Treatment) %>%
   distinct() %>%
   mutate(key = paste("V", 1:n(), sep = ""))
 
-preds <- as.data.frame(fitted(nonlinear_productivity, newdata = new_data, re_formula = NA, summary=F)) %>% 
+preds <- 
+  as.data.frame(fitted(nonlinear_productivity, newdata = new_data, re_formula = NA, summary=F)) %>% 
   mutate(draw = 1:n()) %>% 
   gather(key, Collection_window_offspring, -draw) %>% 
   as_tibble() %>% 
@@ -1452,32 +1485,39 @@ nl_p1 <-
 
 $~$
 
-Estimating $a$ and $\lambda$ 
+Estimating Generation one productivity and $\lambda$ 
+
+Our model estimates $a$ the initial productivity parameter. This is the productivity in generation 0, which in practice is non-sensical. We instead present productivity in generation one which = $a - e^{\lambda*1}$.
 
 ```{r}
 
-Initial_productivity_estimates <-
-as_draws_df(nonlinear_productivity, variable = "^b_a", regex = TRUE) %>% 
-  mutate(`Female-limited` = b_a_Intercept + b_a_TreatmentFemale,
-         `Male-limited` = b_a_Intercept + b_a_TreatmentMale,
-         Control = b_a_Intercept) %>%
-  select(`Female-limited`, `Male-limited`, Control) %>% 
-  mutate_all(~ exp(.x)) %>% 
-  mutate(posterior_sample = 1:n()) %>% 
-  gather(Evolution_treatment, a, -posterior_sample)
+# this code finds a (initial productivity) which is technically gen 0. 
+
+#Initial_productivity_estimates <-
+#as_draws_df(nonlinear_productivity_mortality, variable = "^b_a", regex = TRUE) %>% 
+ # mutate(`Female-limited` = b_a_Intercept + b_a_TreatmentFemale,
+  #       `Male-limited` = b_a_Intercept + b_a_TreatmentMale,
+   #      Control = b_a_Intercept) %>%
+  #select(`Female-limited`, `Male-limited`, Control) %>% 
+  #mutate_all(~ exp(.x)) %>% 
+  #mutate(posterior_sample = 1:n()) %>% 
+  #gather(Evolution_treatment, a, -posterior_sample)
+
+Gen_1_productivity <-
+preds %>% 
+  filter(Generation == 1)
   
 
 Initial_productivity_plot <-
-  Initial_productivity_estimates %>% 
+  Gen_1_productivity %>% 
   
-  ggplot(aes(x = a, y = Evolution_treatment)) +
-  stat_halfeye(aes(fill = Evolution_treatment), .width = c(0.66, 0.95), alpha = 1,
-               point_interval = "mean_qi", point_fill = "white",
-               shape = 21, point_size = 4, stroke = 1.5,
-               slab_colour = "black", slab_size = 0.8) + 
+  ggplot(aes(x = Collection_window_offspring, y = Treatment)) +
+  stat_halfeye(aes(fill = Treatment), .width = c(0.66, 0.95), alpha = 1,
+               point_interval = "median_qi", point_fill = "white",
+               shape = 21, point_size = 4, stroke = 1.5) + 
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  coord_cartesian(xlim = c(50, 300)) +
-  labs(x=expression(paste("Initial productivity parameter ",italic("a"))), y = "Selection response history") +
+  #coord_cartesian(xlim = c(25, 125)) +
+  labs(x= "Productivity in generation 1", y = "Selection response history") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -1502,10 +1542,9 @@ decay_plot <-
   ggplot(aes(x = lambda, y = Evolution_treatment)) +
     stat_halfeye(aes(fill = Evolution_treatment), .width = c(0.66, 0.95), alpha = 1,
                point_interval = "mean_qi", point_fill = "white", 
-               shape = 21, point_size = 4, stroke = 1.5,
-               slab_colour = "black", slab_size = 0.8) +
+               shape = 21, point_size = 4, stroke = 1.5, scale = 0.8) +
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  labs(x=expression(paste("Decay rate parameter ", lambda,)), y = "Selection response history") +
+  labs(x=expression(paste("Decay rate parameter ", lambda,)), y = NULL) +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -1521,21 +1560,19 @@ Create leaf plots like those in Figure 1
 
 Difference_gens_productivity <- 
   preds %>% 
-  group_by(Generation, Treatment) %>% 
-  ungroup() %>% 
   pivot_wider(values_from = "Collection_window_offspring", names_from = "Treatment") %>% 
   mutate(diff.mc = `Male-limited` - Control,
          diff.mf = `Male-limited` - `Female-limited`,
          diff.fc = `Female-limited` - Control) %>% 
-  select(Generation, Block, contains("diff")) %>% 
-  pivot_longer(cols = contains("diff"), values_to = "survival_diff", names_to = "Difference contrast") 
+  select(Generation, contains("diff")) %>% 
+  pivot_longer(cols = contains("diff"), values_to = "productivity_diff", names_to = "Difference contrast") 
 
 # Make the three plots
 
 Leaf_plot_mc_productivity <-
   Difference_gens_productivity %>%
   filter(`Difference contrast` == "diff.mc") %>% 
-  ggplot(aes(survival_diff, as.factor(Generation))) +
+  ggplot(aes(productivity_diff, as.factor(Generation))) +
   stat_interval(.width = c(0.05, 0.66, 0.95), 
                 height = 1, show.legend = F) +
   rcartocolor::scale_color_carto_d(palette = "Purp") +
@@ -1554,7 +1591,7 @@ Leaf_plot_mc_productivity <-
 Leaf_plot_mf_productivity <-
   Difference_gens_productivity %>%
   filter(`Difference contrast` == "diff.mf") %>% 
-  ggplot(aes(survival_diff, as.factor(Generation))) +
+  ggplot(aes(productivity_diff, as.factor(Generation))) +
   stat_interval(.width = c(0.05, 0.66, 0.95), 
                 height = 1, show.legend = F) +
   rcartocolor::scale_color_carto_d(palette = "TealGrn") +
@@ -1573,7 +1610,7 @@ Leaf_plot_mf_productivity <-
 Leaf_plot_fc_productivity <-
   Difference_gens_productivity %>%
   filter(`Difference contrast` == "diff.fc") %>% 
-  ggplot(aes(survival_diff, as.factor(Generation))) +
+  ggplot(aes(productivity_diff, as.factor(Generation))) +
   stat_interval(.width = c(0.05, 0.66, 0.95), 
                 height = 1, show.legend = F) +
   rcartocolor::scale_color_carto_d(palette = "Peach") +
@@ -1597,4 +1634,61 @@ Combine the 6 panels
   plot_annotation(tag_levels = 'a')
 ```
 
-**Figure 2**. the figure to end all figures again. Block 1
+**Figure 2**. Panel **a** shows productivity decline under increasing stress from inbreeding, split by selection response history. Bands are 50% intervals to aid visual inspection. Sand coloured points show raw productivity counts for each lineage in each generation. **b** shows the posterior distribution of median productivity in the first generation of the experiment, with associated 66 and 95% credible intervals. **c** shows the distribution of the decay parameter $\lambda$ for each selection response history. **d-f** 'leaf plots' that show the difference contrasts for productivity in each generation. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.   
+
+
+```{r, include=FALSE}
+
+#### The model without extinction inclusions
+
+#In the above model, we likely **overestimate** $\lambda$ by including extinct lineages as 0 counts in each generation. We choose to do this to negate the affect of survivor bias on our counts i.e. more productive lineages are more likely to survive for more generations in our experiment, which inflates productivity estimates in late generations and leads to **underestimation** of inbreeding depression.
+
+#We attempt to minimise both over- and underestimation of $\lambda$ by running another model on a trimmed dataset that 1) only counts the effect of extinction once per lineage and 2) includes just the first 10 generations of each block, during which our sample size of non-zero productivity counts is still sizeable. 
+  
+trimmed_data <- 
+  Productivity_data_clean %>% 
+  filter(Vial_setup == "Yes",
+         Generation < 11)
+
+nonlinear_productivity_trimmed <- 
+  brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
+         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
+         lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
+         nl = TRUE),
+      data = trimmed_data,
+      #family = negbinomial(link = "identity"),
+      prior = c(prior(normal(4, 0.5), class = b, coef = Intercept, nlpar = "a"),
+                prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
+                prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
+                prior(lognormal(-2.3, 1), class = b, coef = Intercept, nlpar = "lambda"),
+                prior(normal(0, 0.1), class = b, coef = TreatmentFemale, nlpar = "lambda"),
+                prior(normal(0, 0.1), class = b, coef = TreatmentMale, nlpar = "lambda"),
+                prior(gamma(2, 1.5), class = sd, nlpar = "a"),
+                prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
+      control = list(adapt_delta = 0.999, max_treedepth = 12), seed = 1,
+      iter = 10000, warmup = 6000, chains = 4, cores = 4,
+      file = "Fits/non_linear_productivity_model_trimmed")
+
+
+# mortality removed model
+
+nonlinear_productivity_trimmed_mortality <- 
+  brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
+         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
+         lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
+         nl = TRUE),
+      data = trimmed_data,
+      prior = c(prior(normal(4, 0.5), class = b, coef = Intercept, nlpar = "a"),
+                prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
+                prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
+                prior(lognormal(-2.3, 1), class = b, coef = Intercept, nlpar = "lambda"),
+                prior(normal(0, 0.1), class = b, coef = TreatmentFemale, nlpar = "lambda"),
+                prior(normal(0, 0.1), class = b, coef = TreatmentMale, nlpar = "lambda"),
+                prior(gamma(2, 1.5), class = sd, nlpar = "a"),
+                prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
+      control = list(adapt_delta = 0.999, max_treedepth = 12), seed = 1,
+      iter = 10000, warmup = 6000, chains = 4, cores = 4,
+      file = "Fits/non_linear_productivity_model_trimmed_mortality")
+```
+
+
