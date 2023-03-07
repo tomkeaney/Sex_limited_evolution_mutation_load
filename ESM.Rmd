@@ -41,6 +41,16 @@ tibble("Ingredients" = c("Soy flour", "Cornmeal", "Yeast", "Dextrose", "Agar", "
 $~$
 
 ```{r}
+img <- readPNG("Figure_S1.png")
+ 
+grid.raster(img)
+```
+
+**Figure S1**. Crossing scheme used to integrate the GFP constructs and _ap^XA^_ marked translocated second and third chromosome balancers into the LH~M~ genetic background. We replicated the crosses 12 times to supply the flies used in generation zero of experimental evolution; 6 times using the _Ubi_ GFP construct and 6 times with the _3xP_ construct. G = generation.
+
+$~$
+
+```{r}
 mortality_data <- 
   read_csv("Data/Mortality_data.csv") %>% 
   rowid_to_column("Lineage") %>% 

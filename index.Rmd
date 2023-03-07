@@ -34,6 +34,8 @@ library(kableExtra) # tables
 library(patchwork) # putting plots together
 library(DT) # for search- and saveable tables
 library(ggdist) # for ribbon plot
+library(png) # to load images
+library(grid) # to plot images
 ```
 
 # Supplementary methods
@@ -50,6 +52,16 @@ tibble("Ingredients" = c("Soy flour", "Cornmeal", "Yeast", "Dextrose", "Agar", "
 
 $~$
 
+```{r}
+img <- readPNG("Figure_S1.png")
+ 
+grid.raster(img)
+```
+
+**Figure S1**. Crossing scheme used to integrate the GFP constructs and _ap^XA^_ marked translocated second and third chromosome balancers into the LH~M~ genetic background. We replicated the crosses 12 times to supply the flies used in generation zero of experimental evolution; 6 times using the _Ubi_ GFP construct and 6 times with the _3xP_ construct. G = generation.
+
+$~$
+
 # Analysis
 
 $~$
@@ -58,11 +70,11 @@ $~$
 
 $~$
 
-We conducted single-pair full-sibling crosses to erode heterozygosity across the genome, thereby exposing mutation load. Our proxies for mutation load - extinction rate and productivity decline - may also have been affected by differences in the intensity of interlocus sexual conflict between lineages carrying autosomes with different selection response histories. **We specifically designed our experiment to minimise this effect**, by enforcing monogamy between all breeding individuals across the extinction assay. However, we cannot discount males carrying male-limited autosomes and/ or control autosomes being more harmful to females than males carrying autosomes with a female-limited selection response history. This might occur because male harm is a by-product of male-male competition, which cannot respond to selection in the female-limited treatments. Furthermore, traits genetically correlated with harm such as activity levels or metabolic rate may be selected in the opposite direction among females, as these traits are highly sexually dimorphic. This may drive the evolution of reduced harm during female-limited evolution. 
+We conducted single-pair full-sibling crosses to erode heterozygosity across the genome, thereby exposing mutation load. Our proxies for mutation load - extinction rate and productivity decline - may also have been affected by differences in the intensity of interlocus sexual conflict between subpopulations carrying autosomes with different selection response histories. **We specifically designed our experiment to minimise this effect**, by enforcing monogamy between all breeding individuals across the extinction assay. However, we cannot discount males carrying male-limited autosomes and/ or control autosomes being more harmful to females than males carrying autosomes with a female-limited selection response history. This might occur because male harm is a by-product of male-male competition, which cannot respond to selection in the female-limited treatments. Furthermore, traits genetically correlated with harm such as activity levels or metabolic rate may be selected in the opposite direction among females, as these traits are highly sexually dimorphic. This may drive the evolution of reduced harm during female-limited evolution. 
 
 We observe 135 female (6.2%) and 21 (1%) male mortalities across the 2184 _Drosophila_ vials used during the 20 generations of the experiment (we do not include the 9 final generations observed in Block 1 in this analysis). Male mortality did not occur often enough to provide the power required for formal analysis. We instead focus on modelling female mortality and test whether this is affected by selection response history. 
 
-We test this hypothesis to assess whether it is required to censor lineages where the breeding female died in the generation of extinction.
+We test this hypothesis to assess whether it is required to censor subpopulations where the breeding female died in the generation of extinction.
 
 $~$
 
@@ -72,7 +84,7 @@ $~$
 
 mortality_data <- 
   read_csv("Data/Mortality_data.csv") %>% 
-  rowid_to_column("Lineage") %>% 
+  rowid_to_column("subpopulation") %>% 
   pivot_longer(cols = 8:27, names_to = "Generation", values_to = "Female_mortality") %>% 
   mutate(
     Generation = as.integer(str_remove(Generation, "Gen_")),
@@ -111,7 +123,7 @@ my_data_table <- function(df){
 }
 
 my_data_table(mortality_data %>% 
-                select(Mother_strain, Father_strain, Cross, Lineage, Block, Week, Generation, Evolution_treatment, Female_mortality, Male_mortality))
+                select(Mother_strain, Father_strain, Cross, subpopulation, Block, Week, Generation, Evolution_treatment, Female_mortality, Male_mortality))
 
 ```
 
@@ -119,13 +131,13 @@ $~$
 
 **Column explanations**
 
-`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the lineage was derived from.
+`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the subpopulation was derived from.
 
-`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the lineage was derived from.
+`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the subpopulation was derived from.
 
 `Cross`: an identifying ID for each of the 36 combinations of `Mother strain` and `Father strain`. 
 
-`Lineage`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each lineage by crossing a single full-sibling dyad.
+`subpopulation`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each subpopulation by crossing a single full-sibling dyad.
 
 `Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations.
 
@@ -145,7 +157,7 @@ $~$
 
 $~$
 
-We fit a binomial model with `Female_mortality` as the response, `Evolution_treatment` as a fixed effect and `Week`, `Lineage` and `Cross` as random effects.
+We fit a binomial model with `Female_mortality` as the response, `Evolution_treatment` as a fixed effect and `Week`, `subpopulation` and `Cross` as random effects.
 
 **Priors**
 
@@ -162,7 +174,7 @@ $\sigma$ ~ Exponential(rate = 1)
 
 ```{r}
 female_mortality_model <- 
-  brm(Female_mortality ~ 1 + Evolution_treatment + (1|Week) + (1|Cross) + (1|Lineage),
+  brm(Female_mortality ~ 1 + Evolution_treatment + (1|Week) + (1|Cross) + (1|subpopulation),
       data = mortality_data %>% filter(Female_mortality != "NA"),
       family = bernoulli,
       prior = c(prior(normal(-2, 2), class = Intercept),
@@ -204,7 +216,7 @@ mortality_diff <-
 
 ```
 
-### Build Figure S1
+### Build Figure S2
 
 ```{r}
 mortality_plot <-
@@ -244,7 +256,7 @@ mortality_diff_plot <-
 
 ```
 
-**Figure S1**. Female mortality is less frequent in lineages with female-limited selection response histories, suggesting that male harm may be less intense in these lineages. Panel **a** shows the posterior distribution of the mean percentage of female mortality events across the total number of vials that housed lineages throughout the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated median, with associated 66 and 95% credible intervals. 
+**Figure S2**. Female mortality is less frequent in subpopulations with female-limited selection response histories, suggesting that male harm may be less intense in these subpopulations. Panel **a** shows the posterior distribution of the mean percentage of female mortality events across the total number of vials that housed subpopulations throughout the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated median, with associated 66 and 95% credible intervals. 
 
 $~$
 
@@ -297,8 +309,8 @@ extinction_data_wrangled <-
            Gen_11 + Gen_12 + Gen_13 + Gen_14 + Gen_15 + Gen_16 + 
            Gen_17 + Gen_18 + Gen_19 + Gen_20 + Gen_21 + Gen_22 + 
            Gen_23 + Gen_24 + Gen_25 + Gen_26 + Gen_27 + Gen_28 + Gen_29 + 1) %>% 
-  rename(Evolution_treatment = Treatment, Lineage  = ID) %>% 
-  select(Mother_strain, Father_strain, Cross, Lineage, Block, 
+  rename(Evolution_treatment = Treatment, subpopulation  = ID) %>% 
+  select(Mother_strain, Father_strain, Cross, subpopulation, Block, 
          Evolution_treatment, Gens_to_extinct, Gen_1:Gen_29, Censored_alive, 
          Censored_escape, Censored)
 
@@ -314,7 +326,7 @@ extinction_mortality <-
   ) %>% 
   filter(Extant == 0 & Female_mortality == 1) %>% 
   mutate(Censored_mortality = 1) %>% 
-  select(Lineage, Censored_mortality)
+  select(subpopulation, Censored_mortality)
 
 extinction_data_wrangled <- left_join(extinction_data_wrangled, extinction_mortality) %>% 
   mutate(Censored_mortality = if_else(is.na(Censored_mortality), 0, 1),
@@ -348,23 +360,23 @@ my_data_table(extinction_data_wrangled)
 
 **Column explanations**
 
-`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the lineage was derived from.
+`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the subpopulation was derived from.
 
-`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the lineage was derived from.
+`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the subpopulation was derived from.
 
 `Cross`: an identifying ID for each of the 36 combinations of `Mother strain` and `Father strain`. 
 
-`Lineage`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each lineage by crossing a single full-sibling dyad.
+`subpopulation`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each subpopulation by crossing a single full-sibling dyad.
 
 `Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations. Block 1 ran for 29 generations, whereas Block 2 ran for 20 generations.
 
 `Evolution_treatment`: the strains had been exposed to one of three evolutionary conditions for 20-29 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
 
-`Gens_to_extinction`: the number of generations the lineage survived until it went extinct.
+`Gens_to_extinction`: the number of generations the subpopulation survived until it went extinct.
 
-`Gen_1:29`: a 1 indicates the lineage was extant for the generation in question, while a 0 indicates extinction. Note that we continued propagating surviving lineages from Block 1 until generation 29, which coincided with generation 20 for lineages belonging to the second Block.
+`Gen_1:29`: a 1 indicates the subpopulation was extant for the generation in question, while a 0 indicates extinction. Note that we continued propagating surviving subpopulations from Block 1 until generation 29, which coincided with generation 20 for subpopulations belonging to the second Block.
 
-`Censored`: if the lineage 1) ended because flies escaped or were killed by something unrelated to the experiment, 2) went extinct because of breeding female mortality or 3) was extant in the final generation of the experiment, then we coded a value of 1. If the lineage went extinct, we coded a value of 0. This allows us to right censor the data as per the `brms` syntax, thereby preserving the information these censored cases provide on extinction.
+`Censored`: if the subpopulation 1) ended because flies escaped or were killed by something unrelated to the experiment, 2) went extinct because of breeding female mortality or 3) was extant after the final generation of the experiment, then we coded a value of 1. If the subpopulation went extinct, we coded a value of 0. This allows us to right censor the data as per the `brms` syntax, thereby preserving the information these censored cases provide on extinction.
 
 $~$
 
@@ -373,11 +385,13 @@ $~$
 
 $~$
 
-We fit a weibull survival model to estimate \lambda, the extinction rate of the lineages used in our experiment. The weibull model is an extension of an exponential decay model, and includes an additional shape parameter, which allows \lambda to vary across generations of inbreeding. 
+We fit a weibull survival model to estimate \lambda, the extinction rate of the subpopulations used in our experiment. The weibull model is an extension of an exponential decay model, and includes an additional shape parameter, which allows \lambda to vary across generations of inbreeding.
+
+We right censor subpopulations that 1) ended because flies escaped or were killed by something unrelated to the experiment, 2) went extinct because of breeding female mortality or 3) were extant after the final generation of the experiment
 
 **Response variable**
 
-`Gens_to_extinct` is our response - a continuous variable that runs from 1 to 30 generations. Note that we measured extinction up until generation 29 in Block 1 and generation 20 in Block 2. A value of 30 indicates that the lineage was extant at the end of the experiment in Block 1, while a value of 21 indicates this in Block 2. We also include right censoring, to account for lineages extant at the end of the experiment, or that were removed from the experiment by a handling error. Censoring enables the inclusion of this 'incomplete' data in the model. 
+`Gens_to_extinct` is our response - a continuous variable that runs from 1 to 30 generations. Note that we measured extinction up until generation 29 in Block 1 and generation 20 in Block 2. A value of 30 indicates that the subpopulation was extant at the end of the experiment in Block 1, while a value of 21 indicates this in Block 2. We also include right censoring, to account for subpopulations extant at the end of the experiment, or that were removed from the experiment by a handling error. Censoring enables the inclusion of this 'incomplete' data in the model. 
 
 **Fixed effects**
 
@@ -387,13 +401,13 @@ We fit a weibull survival model to estimate \lambda, the extinction rate of the 
 
 **Varying/Random effects**
 
-`Cross`: we initiated each lineage by crossing two strains belonging to the same evolution treatment. There were 12 levels of cross nested within evolution treatment, for a total of 36 crosses. We kept lineages from the same `Cross` and `Block` in the same column of the _Drosophila_ vial trays, so incuding this variable also controls for micro-environmental variation caused by within-tray position. We used this random effect in our first model.
+`Cross`: we initiated each subpopulation by crossing two strains belonging to the same evolution treatment. There were 12 levels of cross nested within evolution treatment, for a total of 36 crosses. We kept subpopulations from the same `Cross` and `Block` in the same column of the _Drosophila_ vial trays, so incuding this variable also controls for micro-environmental variation caused by within-tray position. We used this random effect in our first model.
 
-`Mother_strain` and `Father_strain`: Used as an alternative to `Cross` in our second model. In this case, we fit a multi-membership model, where each lineage simultaneously belongs to two levels of the `Cross` random effect. That is, each lineage was founded my a mother from $strain_i$ and a father from $strain_j$ and they therefore always belong to two levels of strain. 
+`Mother_strain` and `Father_strain`: Used as an alternative to `Cross` in our second model. In this case, we fit a multi-membership model, where each subpopulation simultaneously belongs to two levels of the `Cross` random effect. That is, each subpopulation was founded my a mother from $strain_i$ and a father from $strain_j$ and they therefore always belong to two levels of strain. 
 
 **Multi-membership vs single-membership**
 
-While the multi-membership approach may initially seem the more powerful of the two random effect structures, we favour the single-membership approach for several reasons. First, our primary aim is to estimate the overall causal effect of evolution treatment on generations to extinction, rather than that of each strain (nested within evolution treatment). Given that we balanced our crossing design so that each strain is equally represented in the experiment, estimation for each strain is not integral. Second, Cross captures nuisance environmental variation that Strain does not. We distributed lineages throughout three _Drosophila_ vial trays by placing lineages from the same cross in the same column. Across the columns we split lineages up by evolution treatment, such that column one contained lineages from the female-limited treatment, column two contained lineages from the male-limited treatment and column three contained lineages from the control treatment. We repeated this pattern until all 36 crosses filled a column. As a strain is used in multiple crosses, it is widely distirbuted throughout the trays and therefore does not capture a location effect like cross does. We are of the opinion that controlling for this environmental variation is of greater importance than strain level differences in mutation load, which both cross and evolution treatment also contain information for.
+While the multi-membership approach may initially seem the more powerful of the two random effect structures, we favour the single-membership approach for several reasons. First, our primary aim is to estimate the overall causal effect of evolution treatment on generations to extinction, rather than that of each strain (nested within evolution treatment). Given that we balanced our crossing design so that each strain is equally represented in the experiment, estimation for each strain is not integral. Second, Cross captures nuisance environmental variation that Strain does not. We distributed subpopulations throughout three _Drosophila_ vial trays by placing subpopulations from the same cross in the same column. Across the columns we split subpopulations up by evolution treatment, such that column one contained subpopulations from the female-limited treatment, column two contained subpopulations from the male-limited treatment and column three contained subpopulations from the control treatment. We repeated this pattern until all 36 crosses filled a column. As a strain is used in multiple crosses, it is widely distirbuted throughout the trays and therefore does not capture a location effect like cross does. We are of the opinion that controlling for this environmental variation is of greater importance than strain level differences in mutation load, which both cross and evolution treatment also contain information for.
 
 Finally, we fit both models and use leave one out (LOO) cross validation to formally assess which model has better expected predictive accuracy, both in and out of sample.
 
@@ -415,26 +429,6 @@ $k$ (The weibull shape parameter) ~ Normal($\mu$ = 0, $\sigma$ = 0.5)
 
 
 ### Fit the models
-
-First with the female mortality associated extinctions included as extinction events that reflect mutation load
-
-```{r}
-extinction_model_sm_full <-
-  brm(data = extinction_data_wrangled,
-      family = weibull,
-      bf(Gens_to_extinct | cens(Censored) ~ 1 + Evolution_treatment + Block + (1|Cross),
-         shape ~ 1 + Evolution_treatment + Block),
-      # this intercept prior predicts an appropriate starting point for per gen extinction rate on the log scale
-      prior = c(prior(gamma(5, 3), class = Intercept, lb = 0),  
-                prior(normal(0, 1), class = b),
-                prior(exponential(1), class = sd),
-                prior(normal(0, 0.5), class = b, dpar = shape)), 
-      iter = 8000, warmup = 4000, chains = 4, cores = 4,
-      seed = 1, control = list(adapt_delta = .9, max_treedepth = 10),
-       file = "Fits/extinction_model_full")
-```
-
-Censor these mortality event associated extinctions and refit the model. Fit and compare with the multi-membership model.
 
 ```{r}
 
@@ -545,7 +539,7 @@ Then we can find survival at generation $t$ using
 
 $S = e^{-(\frac{t}{\lambda})^k}$
 
-We plug in a vector with 16000 draws from the posterior distribution for 1) $\mu$ of each inheritance treatment and 2) $k$ the shape parameter to find distributions of the proportion of surviving lineages at each generation.
+We plug in a vector with 16000 draws from the posterior distribution for 1) $\mu$ of each inheritance treatment and 2) $k$ the shape parameter to find distributions of the proportion of surviving subpopulations at each generation.
 
 ```{r}
 
@@ -764,7 +758,7 @@ Weibull_survival_curve <-
 
 Weibull_extinction_estimates_long <-
   Weibull_survival_curve %>% 
-  pivot_longer(cols = everything(), names_to = "Evolution treatment", values_to = "Prop_lineages_surviving") %>% 
+  pivot_longer(cols = everything(), names_to = "Evolution treatment", values_to = "Prop_subpopulations_surviving") %>% 
   separate(`Evolution treatment`, into = c("Evolution treatment", "Generation", "Block"), sep = "_") %>% 
     mutate(`Evolution treatment` = case_when(
     `Evolution treatment` == "Female" ~ "Female-limited",
@@ -793,6 +787,14 @@ Inbreeding_coefs <-
   mutate(single_locus_heterozygosity = 1 - Probability_homozygous,
          single_locus_not_fixed = 1 - Probability_pop_fixation) 
 
+# for the plot annotations
+
+arrows <- 
+  tibble(
+    x1 = 3.2,
+    x2 = 5.6,
+    y1 = 0.28, 
+    y2 = 0.49)
 
 # Block 1
 
@@ -800,7 +802,7 @@ weibull_surv_plot_B1 <-
   Weibull_extinction_estimates_long %>% 
   filter(Block == "B1") %>% 
   group_by(`Evolution treatment`, Generation) %>% 
-  tidybayes::median_qi(Prop_lineages_surviving, .width = 0.5) %>% 
+  tidybayes::median_qi(Prop_subpopulations_surviving, .width = 0.5) %>% 
   mutate(Generation = as.numeric(Generation)) %>% 
   arrange(Generation) %>% 
   # plot!
@@ -809,13 +811,19 @@ weibull_surv_plot_B1 <-
             linewidth = 2, alpha = 1) +
   geom_ribbon(aes(ymin = .lower, ymax = .upper, fill = `Evolution treatment`),
               alpha = 1/2) +
-  geom_line(aes(y = Prop_lineages_surviving, color = `Evolution treatment`), linetype =5, linewidth = 0.8) +
+  geom_line(aes(y = Prop_subpopulations_surviving, color = `Evolution treatment`), linetype =5, linewidth = 0.8) +
+  
+  annotate("text", x = 3.2, y = 0.26, size = 4, label = "Single locus prob. of heterozygosity") +
+  geom_curve(
+    data = arrows, aes(x = x1, y = y1, xend = x2, yend = y2),
+    arrow = arrow(length = unit(0.08, "inch")), size = 0.75,
+    color = "gray20", curvature = -0.3) +
   
   scale_fill_manual(values = met.brewer("Hiroshige", 3)) +
   scale_color_manual(values = met.brewer("Hiroshige", 3), guide = "none") +
-  scale_x_continuous(breaks = c(0, 5, 10, 15, 20, 25, 30), expand = expansion(mult = c(0.01, 0.01))) +
+  scale_x_continuous(breaks = c(0, 5, 10, 15, 20, 25, 30), expand = expansion(mult = c(0.01, 0.01)), limits = c(0, 20)) +
   scale_y_continuous(breaks = c(0, 0.25, .5, 0.75, 1), limits = 0:1, expand = expansion(mult = c(0.01, 0.01))) +
-  labs(x = "Generations of inbreeding", y = "Proportion of surving lineages", fill = "Selection response\nhistory") +
+  labs(x = "Generations of inbreeding", y = "Proportion of surviving subpopulations", fill = "Inheritance treatment") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -919,7 +927,7 @@ ext_p2_B1 <-
 
 ```
 
-We can also estimate the difference between evolutionary treatments in the proportion of lineages extant in each generation. Below we calculate each contrast and make panels d, e and f
+We can also estimate the difference between evolutionary treatments in the proportion of subpopulations extant in each generation. Below we calculate each contrast and make panels d, e and f
 
 ```{r}
 
@@ -1033,7 +1041,7 @@ Leaf_plot_mc_B1 <-
   coord_cartesian(xlim = c(-0.1, 0.3)) +
   scale_y_discrete(limits=rev) +
   geom_vline(linetype = 2, xintercept = 0, size = 1) +
-  labs(x = "Male - Control\nProp. surv lineages",
+  labs(x = "Male - Control\nProp. surv subpopulations",
        y = "Generation of inbreeding") +
   theme_bw() + 
   theme(legend.position = "none",
@@ -1051,7 +1059,7 @@ Leaf_plot_mf_B1 <-
   coord_cartesian(xlim = c(-0.1, 0.3)) +
   scale_y_discrete(limits=rev) +
   geom_vline(linetype = 2, xintercept = 0, size = 1) +
-  labs(x = "Male - Female\nProp. surv lineages",
+  labs(x = "Male - Female\nProp. surv subpopulations",
        y = NULL) +
   theme_bw() + 
   theme(legend.position = "none",
@@ -1069,7 +1077,7 @@ Leaf_plot_fc_B1 <-
   coord_cartesian(xlim = c(-0.1, 0.3)) +
   scale_y_discrete(limits=rev) +
   geom_vline(linetype = 2, xintercept = 0, size = 1) +
-  labs(x = "Female - Control\nProp. surv lineages",
+  labs(x = "Female - Control\nProp. surv subpopulations",
        y = NULL) +
   theme_bw() + 
   theme(legend.position = "none",
@@ -1085,7 +1093,7 @@ Combine the 6 panels
 (weibull_surv_plot_B1 / (ext_p1_B1 + ext_p2_B1)) / (Leaf_plot_mc_B1 + Leaf_plot_mf_B1 + Leaf_plot_fc_B1) +
   plot_annotation(tag_levels = 'a')
 ```
-**Figure 1**. Panel **a** shows extinction trajectories under increasing stress from inbreeding. The black dotted line is the probability that a randomly selected autosomal locus remains heterozygous. **b** shows the posterior distribution of the median with associated 66 and 95% credible intervals for the number of generations that lineages with different selection response histories survived inbreeding exposure. **c** shows the distribution of the difference between each selection response history in generations survived. **d-f** 'leaf plots' that depict the difference in the proportion of lineages surviving in each generation. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.   
+**Figure 1**. Panel **a** shows extinction trajectories under increasing stress from inbreeding. Bands are 50% credible intervals to aid visual inspection. The black dotted line is the probability that a randomly selected autosomal locus remains heterozygous. **b** shows the posterior distribution for the number of generations that sub-populations descended from each inheritance treatment survived inbreeding exposure. The white point shows the median with associated 66 and 95% credible intervals c shows the distribution of the difference between each treatment in generations survived. **d-f** show the distribution of the difference between each treatment in generations survived, estimated separately for each generation of inbreeding. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.   
 
 $~$
 
@@ -1093,7 +1101,7 @@ $~$
 
 $~$
 
-We have several hypotheses that we test with the productivity data. First, productivity should be negatively correlated with the number of generations inbreeding occurs, due to inbreeding depression. As mentioned above, this effect should be strongest in the first ~10 generations of the experiment, during which full-sibling inbreeding should have the largest effects on genome wide heterozygosity. After this point, the inbreeding coefficient will be 0.89, while over the next 10 generations it should only increase by a further 0.1 to 0.99. Hence, we expect productivity to stabilise between the 10th and 20th generations, assuming the lineage is still extant. Second, lineages carrying autosomes that have responded to selection on males should exhibit a smaller drop in productivity compared with lineages carrying the female-adapted or control autosomes, because they have a history of stronger selection that should, in theory, have purged the genome of recessive deleterious alleles.
+We have several hypotheses that we test with the productivity data. First, productivity should be negatively correlated with the number of generations inbreeding occurs, due to inbreeding depression. As mentioned above, this effect should be strongest in the first ~10 generations of the experiment, during which full-sibling inbreeding should have the largest effects on genome wide heterozygosity. After this point, the inbreeding coefficient will be 0.89, while over the next 10 generations it should only increase by a further 0.1 to 0.99. Hence, we expect productivity to stabilise between the 10th and 20th generations, assuming the subpopulation is still extant. Second, subpopulations carrying autosomes that have responded to selection on males should exhibit a smaller drop in productivity compared with subpopulations carrying the female-adapted or control autosomes, because they have a history of stronger selection that should, in theory, have purged the genome of recessive deleterious alleles.
 
 ### Load in the data
 
@@ -1111,9 +1119,9 @@ Productivity_data <-
     
     data %>% 
       distinct(Cross, Replicate) %>% 
-      rowid_to_column("Lineage")
+      rowid_to_column("subpopulation")
   ) %>% 
-  select(Lineage, everything()) %>% 
+  select(subpopulation, everything()) %>% 
   mutate(across(1:7, as.factor),
          Week = as.factor(Week),
          Collection_window_offspring = Female_offspring + Male_offspring,
@@ -1134,16 +1142,16 @@ Productivity_mortality <-
   left_join(
     Productivity_data %>% 
       filter(Generation < 21), #%>% only include data collected on the first 20 generations of inbreeding (block 2's endpoint)
-    mortality_data %>% select(Lineage, Generation, Female_mortality)
+    mortality_data %>% select(subpopulation, Generation, Female_mortality)
   )
 
-# We also include a column that specifies if a lineage was extinct. This means we can easily remove 0 values from the data if required. We can use the `extinction_data_wrangled$Gens_to_extinct` column to help us here. 
+# We also include a column that specifies if a subpopulation was extinct. This means we can easily remove 0 values from the data if required. We can use the `extinction_data_wrangled$Gens_to_extinct` column to help us here. 
 
 Productivity_data_clean <-
   left_join(
     Productivity_mortality,  
     extinction_data_wrangled %>% 
-      select(Lineage, Gens_to_extinct, Censored_mortality)
+      select(subpopulation, Gens_to_extinct, Censored_mortality)
   ) %>% 
   mutate(Vial_setup = if_else(Generation > Gens_to_extinct, "No", "Yes")) %>% 
   filter(Collection_window_offspring != "NA")
@@ -1183,19 +1191,19 @@ my_data_table <- function(df){
 }
 
 my_data_table(Productivity_data_clean %>% 
-                select(Mother_strain, Father_strain, Cross, Lineage, Block, Week, Generation, Treatment, Vial_setup, Count_conditions, Female_offspring, Male_offspring, Collection_window_offspring, Pre_window_female_offspring, Pre_window_male_offspring, Pre_window_offspring, Total_female_offspring, Total_male_offspring, Total_offspring))
+                select(Mother_strain, Father_strain, Cross, subpopulation, Block, Week, Generation, Treatment, Vial_setup, Count_conditions, Female_offspring, Male_offspring, Collection_window_offspring, Pre_window_female_offspring, Pre_window_male_offspring, Pre_window_offspring, Total_female_offspring, Total_male_offspring, Total_offspring))
 
 ```
 
 **Column explanations**
 
-`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the lineage was derived from.
+`Mother strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same `Evolution_treatment`. This column shows the strain that the founding female of the subpopulation was derived from.
 
-`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the lineage was derived from.
+`Father strain`: we measured extinction and productivity of families derived from 36 different crosses. Crosses were only conducted between strains that experienced the same evolution treatment. This column shows the strain that the founding male of the subpopulation was derived from.
 
 `Cross`: an identifying ID for each of the 36 combinations of `Mother strain` and `Father strain`. 
 
-`Lineage`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each lineage by crossing a single full-sibling dyad.
+`subpopulation`: lines of flies founded by single inseminated females in generation zero. We generated the next generation of each subpopulation by crossing a single full-sibling dyad.
 
 `Block`: the experiment was run in 2 distinct blocks, using flies separated by 9 generations. Block 1 ran for 29 generations, whereas Block 2 ran for 20 generations.
 
@@ -1205,7 +1213,7 @@ my_data_table(Productivity_data_clean %>%
 
 `Treatment`: the strains had been exposed to one of three evolutionary conditions for 20-29 generations: a female-limited response to selection, a male-limited response and a control condition where an evolutionary response occurred in both sexes.
 
-`Vial setup`: specifies whether a vial was setup for a given lineage in a given generation. Vials were not setup when the lineage was extinct, or when it could no longer be included in the experiment due to escape/ handling error.
+`Vial setup`: specifies whether a vial was setup for a given subpopulation in a given generation. Vials were not setup when the subpopulation was extinct, or when it could no longer be included in the experiment due to escape/ handling error.
 
 `Count_conditions`: Normal indicates that the breeding window lasted the standard three days. Extra day indicates the breeding pair were left in the vial for an extra day. This occurred during generation 15 of the second experimental block.
 
@@ -1229,63 +1237,6 @@ my_data_table(Productivity_data_clean %>%
 
 $~$
 
-```{r, include=FALSE}
-
-### Do we observe inbreeding depression?
-
-#$~$
-
-#Let's plot the raw data to get an idea.
-
-# Full data, no mortality removals
-
-point_plot_1 <-
-  Productivity_data_clean %>%
-  ggplot(aes(x = Generation, y = Collection_window_offspring)) +
-  geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
-              shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
-  # All the data
-  geom_smooth(size = 1.5, colour = met.brewer("OKeeffe2")[4]) +
-  geom_smooth(data = Productivity_data_clean %>% filter(Vial_setup == "Yes"), size = 1.5, colour = met.brewer("OKeeffe2")[4]) +
-  # Mortality events and their consequences removed
-  geom_smooth(data = Productivity_data_clean_2 %>% filter(Vial_setup == "Yes"), size = 1.5, colour = met.brewer("OKeeffe2")[6], linetype = 2) +
-  geom_smooth(data = Productivity_data_clean_2, size = 1.5, colour = met.brewer("OKeeffe2")[6], linetype = 2) +
-  theme_tidybayes() +
-  scale_y_continuous(breaks = c(0, 25, 50, 75, 100, 125, 150), limits = c(0,150), expand = expansion(mult = c(0.01, .01))) +
-  scale_x_continuous(limits = c(1,20), expand = c(0.01, 0)) +
-  labs(y = "Collection window\noffspring production", x = "Generation of inbreeding") +
-  theme(text = element_text(size = 14))
-
-point_plot_1
-
-#Figure S2**. Inbreeding depression affects lineage productivity. The plot shows offspring counted during the offspring collection window,where the light curves shows the decline in productivity with extinct lineages counted as zeros (the steeper curve), while and the decline when only extant lineages were considered (the shallower curve). The dotted curves show the same data, except with productivity counts affected by female mortality events filtered out. 
-
-```
-
-
-```{r, include=FALSE}
-
-#What effect does evolutionary history appear to have on productivity decline?
-
-treatment_plot <-
-  Productivity_data_clean %>%
-  ggplot(aes(x = Generation, y = Collection_window_offspring)) +
-  geom_jitter(colour = met.brewer("OKeeffe2")[2], width = 0.25, 
-              shape = 1.5, stroke =2, size = 1.2, alpha = 0.25) +
-  geom_smooth(aes(colour = Treatment), size = 1.5) +
-  scale_colour_manual(values = met.brewer("Hiroshige", 3), guide = "none") +
-  theme_tidybayes() +
-  scale_y_continuous(limits = c(0,150), expand = expansion(mult = c(0.01, .01))) +
-  scale_x_continuous(limits = c(1,20), expand = c(0.01, 0)) +
-  labs(y = "Collection window\noffspring production", x = "Generation of inbreeding") +
-  theme(text = element_text(size = 14))
-
-treatment_plot
-
-```
-
-$~$
-
 **Do offspring emerge prior to day 10 throughout the experiment?**
 
 ```{r}
@@ -1304,7 +1255,7 @@ $~$
         legend.position = "bottom")
 ```
 
-**Figure S2**. Raw proportion of productivity that occurred prior to the eclosion window, for the first 20 generations of the experiment.
+**Figure S3**. Raw proportion of productivity that occurred prior to the eclosion window, for the first 20 generations of the experiment.
 
 $~$
 
@@ -1318,11 +1269,11 @@ As mentioned above, we have strong expectations for how full-sibling inbreeding 
 
 Here we model the productivity at generation $t$ via the function $a - e^{\lambda t}$ where $a$ and $\lambda$ are parameters that control the initial productivity and the rate of its decay as generations of inbreeding progress. We force $a$ to be positive using the `exp()` function, which expresses it on the exponential scale. Large $a$ indicates higher starting productivity at generation 0 (we started observation at generation 1, the productivity for which is given by $a - e^{\lambda}$). Positive values of $\lambda$ indicate that productivity declines with inbreeding, which is our strong expectation and clearly the case following inspection of the raw data (see Figure SX). 
 
-We model inbreeding depression while including zero values for all rows where a lineage was extinct. This helps combat underestimation of the decay parameter, caused by the non-random extinction of lineages, where high fitness lineages become over-represented as the generations of inbreeding progress (i.e. selection). 
+We model inbreeding depression while including zero values for all rows where a subpopulation was extinct. This helps combat underestimation of the decay parameter, caused by the non-random extinction of subpopulations, where high fitness subpopulations become over-represented as the generations of inbreeding progress (i.e. selection). 
 
 **Fixed and random effects**
 
-In the `brms` non-linear syntax, different formulas can be fit for each parameter. We fit the same fixed effect for $a$ and $\lambda$: `Evolution treatment`. We fit `Lineage` as a random effect to account for repeated measurements taken on each lineage for $a$, but are unable to do this for $\lambda$, as individual lineage productivity curves are highly heteroskedastic, and are skewed by extinction events. To minimise pseudoreplication for $\lambda$, we fit `Cross` as a random effect, as we do for the extinction data. We also fit `Week` as a random effect for both parameters; this controls for environmental variation between generations.
+In the `brms` non-linear syntax, different formulas can be fit for each parameter. We fit the same fixed effect for $a$ and $\lambda$: `Evolution treatment`. We fit `subpopulation` as a random effect to account for repeated measurements taken on each subpopulation for $a$, but are unable to do this for $\lambda$, as individual subpopulation productivity curves are highly heteroskedastic, and are skewed by extinction events. To minimise pseudoreplication for $\lambda$, we fit `Cross` as a random effect, as we do for the extinction data. We also fit `Week` as a random effect for both parameters; this controls for environmental variation between generations.
 
 **Priors**
 
@@ -1373,7 +1324,7 @@ prior %>%
   theme_tidybayes() +
   scale_y_continuous(limits = c(0,200), expand = expansion(mult = c(0, .1))) +
   scale_x_continuous(limits = c(0,20), expand = c(0, 0)) +
-  labs(y = "Lineage productivity", x = "Generation of inbreeding") +
+  labs(y = "subpopulation productivity", x = "Generation of inbreeding") +
   theme(text = element_text(size = 14))
 
 ```
@@ -1386,7 +1337,7 @@ $~$
 
 nonlinear_productivity <- 
   brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
-         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
+         a ~ 1 + Treatment + (1|Week) + (1|subpopulation), 
          lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
          nl = TRUE),
       data = Productivity_data_clean,
@@ -1401,26 +1352,6 @@ nonlinear_productivity <-
       control = list(adapt_delta = 0.9, max_treedepth = 12), seed = 5,
       iter = 20000, warmup = 5000, chains = 4, cores = 4,
       file = "Fits/non_linear_productivity_model_no_fam")
-
-# with female mortality events removed
-
-nonlinear_productivity_mortality <- 
-  brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
-         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
-         lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
-         nl = TRUE),
-      data = Productivity_data_clean_2,
-      prior = c(prior(normal(4.2, 0.25), class = b, coef = Intercept, nlpar = "a"),
-                prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
-                prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
-                prior(gamma(0.8, 4), class = b, coef = Intercept, nlpar = "lambda"),
-                prior(normal(0, 0.2), class = b, coef = TreatmentFemale, nlpar = "lambda"),
-                prior(normal(0, 0.2), class = b, coef = TreatmentMale, nlpar = "lambda"),
-                prior(gamma(2, 1.5), class = sd, nlpar = "a"),
-                prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
-      control = list(adapt_delta = 0.9, max_treedepth = 14), seed = 5,
-      iter = 20000, warmup = 5000, chains = 4, cores = 4,
-      file = "Fits/non_linear_productivity_model_mortality")
 
 ```
 
@@ -1472,7 +1403,7 @@ nl_p1 <-
   scale_y_continuous(expand = expansion(mult = c(0.01, 0))) +
   theme_tidybayes() +
   coord_cartesian(xlim = c(1, 20), ylim = c(0, 150)) +
-  labs(y = "Lineage productivity", x = "Generation of inbreeding", fill = "Selection response\nhistory") +
+  labs(y = "Subpopulation productivity", x = "Generation of inbreeding", fill = "Selection response\nhistory") +
   theme(text = element_text(size = 14),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 11),
@@ -1491,18 +1422,6 @@ Our model estimates $a$ the initial productivity parameter. This is the producti
 
 ```{r}
 
-# this code finds a (initial productivity) which is technically gen 0. 
-
-#Initial_productivity_estimates <-
-#as_draws_df(nonlinear_productivity_mortality, variable = "^b_a", regex = TRUE) %>% 
- # mutate(`Female-limited` = b_a_Intercept + b_a_TreatmentFemale,
-  #       `Male-limited` = b_a_Intercept + b_a_TreatmentMale,
-   #      Control = b_a_Intercept) %>%
-  #select(`Female-limited`, `Male-limited`, Control) %>% 
-  #mutate_all(~ exp(.x)) %>% 
-  #mutate(posterior_sample = 1:n()) %>% 
-  #gather(Evolution_treatment, a, -posterior_sample)
-
 Gen_1_productivity <-
 preds %>% 
   filter(Generation == 1)
@@ -1516,7 +1435,6 @@ Initial_productivity_plot <-
                point_interval = "median_qi", point_fill = "white",
                shape = 21, point_size = 4, stroke = 1.5) + 
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  #coord_cartesian(xlim = c(25, 125)) +
   labs(x= "Productivity in generation 1", y = "Selection response history") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
@@ -1554,7 +1472,7 @@ decay_plot <-
 
 ```
 
-Create leaf plots like those in Figure 1
+Create plots d and e
 
 ```{r}
 
@@ -1576,7 +1494,7 @@ Leaf_plot_mc_productivity <-
   stat_interval(.width = c(0.05, 0.66, 0.95), 
                 height = 1, show.legend = F) +
   rcartocolor::scale_color_carto_d(palette = "Purp") +
-  #coord_cartesian(xlim = c(-0.1, 0.3)) +
+  coord_cartesian(xlim = c(-5, 25)) +
   scale_y_discrete(limits=rev) +
   geom_vline(linetype = 2, xintercept = 0, size = 1) +
   labs(x = "Male - Control\nProductivity diff.",
@@ -1595,7 +1513,7 @@ Leaf_plot_mf_productivity <-
   stat_interval(.width = c(0.05, 0.66, 0.95), 
                 height = 1, show.legend = F) +
   rcartocolor::scale_color_carto_d(palette = "TealGrn") +
-  #coord_cartesian(xlim = c(-0.1, 0.3)) +
+  coord_cartesian(xlim = c(-5, 25)) +
   scale_y_discrete(limits=rev) +
   geom_vline(linetype = 2, xintercept = 0, size = 1) +
   labs(x = "Male - Female\nProductivity diff.",
@@ -1614,7 +1532,7 @@ Leaf_plot_fc_productivity <-
   stat_interval(.width = c(0.05, 0.66, 0.95), 
                 height = 1, show.legend = F) +
   rcartocolor::scale_color_carto_d(palette = "Peach") +
-  #coord_cartesian(xlim = c(-0.1, 0.3)) +
+  coord_cartesian(xlim = c(-5, 25)) +
   scale_y_discrete(limits=rev) +
   geom_vline(linetype = 2, xintercept = 0, size = 1) +
   labs(x = "Female - Control\nProductivity diff.",
@@ -1634,61 +1552,4 @@ Combine the 6 panels
   plot_annotation(tag_levels = 'a')
 ```
 
-**Figure 2**. Panel **a** shows productivity decline under increasing stress from inbreeding, split by selection response history. Bands are 50% intervals to aid visual inspection. Sand coloured points show raw productivity counts for each lineage in each generation. **b** shows the posterior distribution of median productivity in the first generation of the experiment, with associated 66 and 95% credible intervals. **c** shows the distribution of the decay parameter $\lambda$ for each selection response history. **d-f** 'leaf plots' that show the difference contrasts for productivity in each generation. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.   
-
-
-```{r, include=FALSE}
-
-#### The model without extinction inclusions
-
-#In the above model, we likely **overestimate** $\lambda$ by including extinct lineages as 0 counts in each generation. We choose to do this to negate the affect of survivor bias on our counts i.e. more productive lineages are more likely to survive for more generations in our experiment, which inflates productivity estimates in late generations and leads to **underestimation** of inbreeding depression.
-
-#We attempt to minimise both over- and underestimation of $\lambda$ by running another model on a trimmed dataset that 1) only counts the effect of extinction once per lineage and 2) includes just the first 10 generations of each block, during which our sample size of non-zero productivity counts is still sizeable. 
-  
-trimmed_data <- 
-  Productivity_data_clean %>% 
-  filter(Vial_setup == "Yes",
-         Generation < 11)
-
-nonlinear_productivity_trimmed <- 
-  brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
-         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
-         lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
-         nl = TRUE),
-      data = trimmed_data,
-      #family = negbinomial(link = "identity"),
-      prior = c(prior(normal(4, 0.5), class = b, coef = Intercept, nlpar = "a"),
-                prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
-                prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
-                prior(lognormal(-2.3, 1), class = b, coef = Intercept, nlpar = "lambda"),
-                prior(normal(0, 0.1), class = b, coef = TreatmentFemale, nlpar = "lambda"),
-                prior(normal(0, 0.1), class = b, coef = TreatmentMale, nlpar = "lambda"),
-                prior(gamma(2, 1.5), class = sd, nlpar = "a"),
-                prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
-      control = list(adapt_delta = 0.999, max_treedepth = 12), seed = 1,
-      iter = 10000, warmup = 6000, chains = 4, cores = 4,
-      file = "Fits/non_linear_productivity_model_trimmed")
-
-
-# mortality removed model
-
-nonlinear_productivity_trimmed_mortality <- 
-  brm(bf(Collection_window_offspring ~ exp(a - (lambda * Generation)),
-         a ~ 1 + Treatment + (1|Week) + (1|Lineage), 
-         lambda ~ 1 + Treatment + (1|Week) + (1|Cross), 
-         nl = TRUE),
-      data = trimmed_data,
-      prior = c(prior(normal(4, 0.5), class = b, coef = Intercept, nlpar = "a"),
-                prior(normal(0, 0.25), class = b, coef = TreatmentFemale, nlpar = "a"),
-                prior(normal(0, 0.25), class = b, coef = TreatmentMale, nlpar = "a"),
-                prior(lognormal(-2.3, 1), class = b, coef = Intercept, nlpar = "lambda"),
-                prior(normal(0, 0.1), class = b, coef = TreatmentFemale, nlpar = "lambda"),
-                prior(normal(0, 0.1), class = b, coef = TreatmentMale, nlpar = "lambda"),
-                prior(gamma(2, 1.5), class = sd, nlpar = "a"),
-                prior(gamma(0.25, 2), class = sd, nlpar = "lambda")),
-      control = list(adapt_delta = 0.999, max_treedepth = 12), seed = 1,
-      iter = 10000, warmup = 6000, chains = 4, cores = 4,
-      file = "Fits/non_linear_productivity_model_trimmed_mortality")
-```
-
-
+**Figure 2**. Panel **a** shows productivity decline under increasing stress from inbreeding, split by inheritance treatment. Bands are 50% credible intervals to aid visual inspection and circular points show raw productivity counts for each sub-population in each generation. **b** shows the posterior distribution of productivity in the first generation of the experiment; white points are the median with associated 66 and 95% credible intervals. **c** shows the distribution of the productivity decay rate for each treatment. **d-f** show the difference contrasts for productivity in each generation. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.  
