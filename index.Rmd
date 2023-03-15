@@ -897,7 +897,7 @@ ext_p1_B1 <-
                point_interval = "median_qi", point_fill = "white",
                shape = 21, point_size = 4, stroke = 1.5) + # width indicates the uncertainty intervals: here we have 66% and 95% intervals + # width indicates the uncertainty intervals: here we have 66% and 95% intervals+
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  labs(x = "Generations till extinction", y = "Selection response history") +
+  labs(x = "Generations till extinction", y = "Inheritance treatment") +
   scale_x_continuous(breaks=seq(4, 12, 1), limits = c(4, 12)) +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
@@ -995,34 +995,34 @@ Difference_gens_B1 <-
          G19_diff.fc = Female_19_B1 - Control_19_B1,
          G20_diff.c = Male_20_B1 - Control_20_B1,
          G20_diff.f = Male_20_B1 - Female_20_B1,
-         G20_diff.fc = Female_20_B1 - Control_20_B1,
-         G21_diff.c = Male_21_B1 - Control_21_B1,
-         G21_diff.f = Male_21_B1 - Female_21_B1,
-         G21_diff.fc = Female_21_B1 - Control_21_B1,
-         G22_diff.c = Male_22_B1 - Control_22_B1,
-         G22_diff.f = Male_22_B1 - Female_22_B1,
-         G22_diff.fc = Female_22_B1 - Control_22_B1,
-         G23_diff.c = Male_23_B1 - Control_23_B1,
-         G23_diff.f = Male_23_B1 - Female_23_B1,
-         G23_diff.fc = Female_23_B1 - Control_23_B1,
-         G24_diff.c = Male_24_B1 - Control_24_B1,
-         G24_diff.f = Male_24_B1 - Female_24_B1,
-         G24_diff.fc = Female_24_B1 - Control_24_B1,
-         G25_diff.c = Male_25_B1 - Control_25_B1,
-         G25_diff.f = Male_25_B1 - Female_25_B1,
-         G25_diff.fc = Female_25_B1 - Control_25_B1,
-         G26_diff.c = Male_26_B1 - Control_26_B1,
-         G26_diff.f = Male_26_B1 - Female_26_B1,
-         G26_diff.fc = Female_26_B1 - Control_26_B1,
-         G27_diff.c = Male_27_B1 - Control_27_B1,
-         G27_diff.f = Male_27_B1 - Female_27_B1,
-         G27_diff.fc = Female_27_B1 - Control_27_B1,
-         G28_diff.c = Male_28_B1 - Control_28_B1,
-         G28_diff.f = Male_28_B1 - Female_28_B1,
-         G28_diff.fc = Female_28_B1 - Control_28_B1,
-         G29_diff.c = Male_2_B1 - Control_29_B1,
-         G29_diff.f = Male_29_B1 - Female_29_B1,
-         G29_diff.fc = Female_29_B1 - Control_29_B1) %>% 
+         G20_diff.fc = Female_20_B1 - Control_20_B1) %>% 
+        #G21_diff.c = Male_21_B1 - Control_21_B1,
+        #G21_diff.f = Male_21_B1 - Female_21_B1,
+        #G21_diff.fc = Female_21_B1 - Control_21_B1,
+        #G22_diff.c = Male_22_B1 - Control_22_B1,
+        #G22_diff.f = Male_22_B1 - Female_22_B1,
+        #G22_diff.fc = Female_22_B1 - Control_22_B1,
+        #G23_diff.c = Male_23_B1 - Control_23_B1,
+        #G23_diff.f = Male_23_B1 - Female_23_B1,
+        #G23_diff.fc = Female_23_B1 - Control_23_B1,
+        #G24_diff.c = Male_24_B1 - Control_24_B1,
+        #G24_diff.f = Male_24_B1 - Female_24_B1,
+        #G24_diff.fc = Female_24_B1 - Control_24_B1,
+        #G25_diff.c = Male_25_B1 - Control_25_B1,
+        #G25_diff.f = Male_25_B1 - Female_25_B1,
+        #G25_diff.fc = Female_25_B1 - Control_25_B1,
+        #G26_diff.c = Male_26_B1 - Control_26_B1,
+        #G26_diff.f = Male_26_B1 - Female_26_B1,
+        #G26_diff.fc = Female_26_B1 - Control_26_B1,
+        #G27_diff.c = Male_27_B1 - Control_27_B1,
+        #G27_diff.f = Male_27_B1 - Female_27_B1,
+        #G27_diff.fc = Female_27_B1 - Control_27_B1,
+        #G28_diff.c = Male_28_B1 - Control_28_B1,
+        #G28_diff.f = Male_28_B1 - Female_28_B1,
+        #G28_diff.fc = Female_28_B1 - Control_28_B1,
+        #G29_diff.c = Male_2_B1 - Control_29_B1,
+        #G29_diff.f = Male_29_B1 - Female_29_B1,
+        #G29_diff.fc = Female_29_B1 - Control_29_B1) %>% 
   select(starts_with("G")) %>% 
   pivot_longer(cols = everything(), names_to = "Difference contrast", values_to = "survival_diff") %>% 
   separate(`Difference contrast`, into = c("Generation", "Difference contrast"), sep = "_") %>% 
@@ -1091,7 +1091,8 @@ Combine the 6 panels
 
 ```{r, fig.height=12, fig.width=10}
 (weibull_surv_plot_B1 / (ext_p1_B1 + ext_p2_B1)) / (Leaf_plot_mc_B1 + Leaf_plot_mf_B1 + Leaf_plot_fc_B1) +
-  plot_annotation(tag_levels = 'a')
+  plot_annotation(tag_levels = 'a') + 
+  plot_layout(heights = c(1.5, 1, 1))
 ```
 **Figure 1**. Panel **a** shows extinction trajectories under increasing stress from inbreeding. Bands are 50% credible intervals to aid visual inspection. The black dotted line is the probability that a randomly selected autosomal locus remains heterozygous. **b** shows the posterior distribution for the number of generations that sub-populations descended from each inheritance treatment survived inbreeding exposure. The white point shows the median with associated 66 and 95% credible intervals c shows the distribution of the difference between each treatment in generations survived. **d-f** show the distribution of the difference between each treatment in generations survived, estimated separately for each generation of inbreeding. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.   
 
@@ -1403,7 +1404,7 @@ nl_p1 <-
   scale_y_continuous(expand = expansion(mult = c(0.01, 0))) +
   theme_tidybayes() +
   coord_cartesian(xlim = c(1, 20), ylim = c(0, 150)) +
-  labs(y = "Subpopulation productivity", x = "Generation of inbreeding", fill = "Selection response\nhistory") +
+  labs(y = "Subpopulation productivity", x = "Generation of inbreeding", fill = "Inheritance treatment") +
   theme(text = element_text(size = 14),
         legend.title = element_text(size = 12),
         legend.text = element_text(size = 11),
@@ -1435,7 +1436,7 @@ Initial_productivity_plot <-
                point_interval = "median_qi", point_fill = "white",
                shape = 21, point_size = 4, stroke = 1.5) + 
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  labs(x= "Productivity in generation 1", y = "Selection response history") +
+  labs(x= "Productivity in generation 1", y = "Inheritance treatment") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
@@ -1549,7 +1550,8 @@ Combine the 6 panels
 
 ```{r, fig.height=12, fig.width=10}
 (nl_p1 / (Initial_productivity_plot + decay_plot)) / (Leaf_plot_mc_productivity + Leaf_plot_mf_productivity + Leaf_plot_fc_productivity) +
-  plot_annotation(tag_levels = 'a')
+  plot_annotation(tag_levels = 'a') + 
+  plot_layout(heights = c(1.5, 1, 1))
 ```
 
 **Figure 2**. Panel **a** shows productivity decline under increasing stress from inbreeding, split by inheritance treatment. Bands are 50% credible intervals to aid visual inspection and circular points show raw productivity counts for each sub-population in each generation. **b** shows the posterior distribution of productivity in the first generation of the experiment; white points are the median with associated 66 and 95% credible intervals. **c** shows the distribution of the productivity decay rate for each treatment. **d-f** show the difference contrasts for productivity in each generation. The innermost colour band approximates the median, while the middle and outermost bars show 66 and 95% credible intervals.  
