@@ -226,7 +226,7 @@ mortality_plot <-
                point_interval = "median_qi", point_fill = "white", 
                shape = 21, point_size = 4, stroke = 1.5) +
   scale_fill_manual(values = met.brewer("Hiroshige", 5)) +
-  labs(x= "Female mortality (%)", y = "Selection response\nhistory") +
+  labs(x= "Female mortality (%)", y = "Inheritance treatment") +
   theme_bw() + 
   theme(panel.background = element_rect(fill='transparent'), #transparent panel bg
         plot.background = element_rect(fill='transparent', color=NA), #transparent plot bg
