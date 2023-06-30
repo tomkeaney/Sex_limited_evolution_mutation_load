@@ -216,7 +216,7 @@ mortality_diff <-
 
 ```
 
-### Build Figure S2
+### Build Figure 3
 
 ```{r}
 mortality_plot <-
@@ -256,7 +256,7 @@ mortality_diff_plot <-
 
 ```
 
-**Figure S2**. Female mortality is less frequent in subpopulations with female-limited selection response histories, suggesting that male harm may be less intense in these subpopulations. Panel **a** shows the posterior distribution of the mean percentage of female mortality events across the total number of vials that housed subpopulations throughout the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated median, with associated 66 and 95% credible intervals. 
+**Figure 3**. Female mortality is less frequent in subpopulations with female-limited selection response histories, suggesting that male harm may be less intense in these subpopulations. Panel **a** shows the posterior distribution of the mean percentage of female mortality events across the total number of vials that housed subpopulations throughout the extinction assay, split by selection response history. Panel **b** shows the posterior distribution of the difference between each treatment. The points show the estimated median, with associated 66 and 95% credible intervals. 
 
 $~$
 
@@ -1256,7 +1256,7 @@ $~$
         legend.position = "bottom")
 ```
 
-**Figure S3**. Raw proportion of productivity that occurred prior to the eclosion window, for the first 20 generations of the experiment.
+**Figure S2**. Raw proportion of productivity that occurred prior to the eclosion window, for the first 20 generations of the experiment.
 
 $~$
 
